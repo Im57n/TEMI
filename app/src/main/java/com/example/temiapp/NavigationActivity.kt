@@ -25,10 +25,19 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     companion object {
         const val EXTRA_TARGET_LOCATION = "extra_target_location"
         const val EXTRA_SOURCE_QUERY = "extra_source_query"
+        const val EXTRA_START_VIDEO_ON_ARRIVAL = "extra_start_video_on_arrival"
+        const val EXTRA_VIDEO_MODE = "extra_video_mode"
+        const val EXTRA_VIDEO_KEY = "extra_video_key"
         private const val TAG = "NavigationActivity"
     }
 
     private var pendingAutoTarget: String? = null
+    private var startVideoOnArrival: Boolean = false
+    private var videoMode: String = VideoActivity.MODE_HEALTH_EDU
+    private var videoKey: String = ""
+
+    private var activeTarget: String? = null
+    private var arrivalConsumed: Boolean = false
     private var isRobotReady: Boolean = false
 
     private lateinit var robot: Robot
@@ -95,6 +104,11 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_navigation)
 
+        startVideoOnArrival = intent.getBooleanExtra(EXTRA_START_VIDEO_ON_ARRIVAL, false)
+        videoMode = intent.getStringExtra(EXTRA_VIDEO_MODE) ?: VideoActivity.MODE_HEALTH_EDU
+        videoKey = intent.getStringExtra(EXTRA_VIDEO_KEY).orEmpty()
+        arrivalConsumed = false
+
         robot = Robot.getInstance()
 
         layoutOverlay = findViewById(R.id.layout_overlay)
@@ -108,6 +122,12 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+
+        startVideoOnArrival = intent.getBooleanExtra(EXTRA_START_VIDEO_ON_ARRIVAL, false)
+        videoMode = intent.getStringExtra(EXTRA_VIDEO_MODE) ?: VideoActivity.MODE_HEALTH_EDU
+        videoKey = intent.getStringExtra(EXTRA_VIDEO_KEY).orEmpty()
+        arrivalConsumed = false
+
         handleAutoNavigationFromIntent(intent)
     }
 
@@ -137,7 +157,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     }
 
     private fun handleAutoNavigationFromIntent(intent: Intent?) {
-        val i = intent ?: return   // 先保證不是 null
+        val i = intent ?: return
 
         val raw = i.getStringExtra(EXTRA_TARGET_LOCATION)?.trim().orEmpty()
         if (raw.isBlank()) return
@@ -146,17 +166,15 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         val sourceQuery = i.getStringExtra(EXTRA_SOURCE_QUERY).orEmpty()
         Log.d(TAG, "auto target=$target, query=$sourceQuery")
 
+        activeTarget = target
+
         if (isRobotReady || robot.isReady) {
             startGoToLocation(target, false)
         } else {
             pendingAutoTarget = target
             Toast.makeText(this, "已收到語音指令：$target", Toast.LENGTH_SHORT).show()
         }
-
-        i.removeExtra(EXTRA_TARGET_LOCATION)
-        i.removeExtra(EXTRA_SOURCE_QUERY)
     }
-
 
     private fun normalizeTargetName(raw: String): String {
         val clean = raw.trim()
@@ -250,6 +268,23 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
                 showCustomDialog()
             }
             return
+        }
+
+        // ✅ 病房模式：抵達目標病房後直接開 VideoActivity（自動播放）
+        if (startVideoOnArrival && !arrivalConsumed) {
+            val target = activeTarget?.trim().orEmpty()
+            if (target.isNotEmpty() && location == target) {
+                arrivalConsumed = true
+                val i = Intent(this, VideoActivity::class.java).apply {
+                    putExtra(VideoActivity.EXTRA_MODE, videoMode)
+                    putExtra(VideoActivity.EXTRA_ROOM, target)
+                    putExtra(VideoActivity.EXTRA_AUTOPLAY_KEY, videoKey)
+                    putExtra(VideoActivity.EXTRA_AFTER_ASK_AND_CHARGE, true)
+                }
+                startActivity(i)
+                finish()
+                return
+            }
         }
 
         val onActionComplete = { checkNextMove(location) }

@@ -44,6 +44,7 @@
         <activity android:name=".VideoActivity" />
         <activity android:name=".WardGuideActivity" />
 
-    </application>
+            <activity android:name=".RoomActionMenuActivity" />
+</application>
 
 </manifest>

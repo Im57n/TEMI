@@ -78,6 +78,7 @@
                 android:backgroundTint="#F44336"
                 android:text="停止播放"
                 android:textSize="22sp"
+                android:textColor="#FFFFFF"
                 app:cornerRadius="20dp" />
         </GridLayout>
 
@@ -90,10 +91,11 @@
         android:text="返回"
         android:textSize="24sp"
         android:textStyle="bold"
+        android:textColor="#FFFFFF"
         android:layout_gravity="top|end"
         android:layout_marginTop="20dp"
         android:layout_marginEnd="20dp"
-        android:backgroundTint="#757575"
+        android:backgroundTint="#F44336"
         app:cornerRadius="10dp" />
 
 </FrameLayout>

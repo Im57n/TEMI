@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="#FFFFFF">
+
+    <TextView
+        android:id="@+id/tv_room_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="目前病房："
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="#333333"
+        android:layout_marginBottom="18dp" />
+
+    <Button
+        android:id="@+id/btn_health_edu"
+        android:layout_width="match_parent"
+        android:layout_height="88dp"
+        android:text="衛教宣導"
+        android:textSize="26sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#6750A4"
+        app:cornerRadius="44dp" />
+
+    <Button
+        android:id="@+id/btn_policy"
+        android:layout_width="match_parent"
+        android:layout_height="88dp"
+        android:layout_marginTop="18dp"
+        android:text="政策宣導"
+        android:textSize="26sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#6750A4"
+        app:cornerRadius="44dp" />
+
+    <Button
+        android:id="@+id/btn_back"
+        android:layout_width="match_parent"
+        android:layout_height="88dp"
+        android:layout_marginTop="26dp"
+        android:text="返回"
+        android:textSize="26sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#F44336"
+        app:cornerRadius="44dp" />
+
+</LinearLayout>
