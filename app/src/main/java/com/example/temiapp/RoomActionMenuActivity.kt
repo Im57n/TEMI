@@ -30,6 +30,7 @@ class RoomActionMenuActivity : AppCompatActivity() {
             val i = Intent(this, VideoActivity::class.java).apply {
                 putExtra(VideoActivity.EXTRA_MODE, VideoActivity.MODE_HEALTH_EDU)
                 putExtra(VideoActivity.EXTRA_ROOM, room)
+                putExtra(BroadcastActivity.EXTRA_TARGET_ROOM, room)
                 // 影片播放完要詢問「是否還有其他問題」；選「沒有」就回充電座
                 putExtra(VideoActivity.EXTRA_AFTER_ASK_AND_CHARGE, true)
             }

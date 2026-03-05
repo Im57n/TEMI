@@ -177,17 +177,23 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     }
 
     private fun normalizeTargetName(raw: String): String {
-        val clean = raw.trim()
+        val trimmed = raw.trim()
             .replace("汙物室", "污物室")
+
+        // 先處理充電座 / home base（避免空白被吃掉）
+        val lowerNoSpace = trimmed
             .replace(Regex("[\\s\\u3000]+"), "")
+            .lowercase()
 
-        val upper = clean.uppercase()
-        if (Regex("^8\\d{2}[ABC]?$").matches(upper)) return upper
-
-        return when (clean) {
-            "充電座" -> "home base"
-            else -> clean
+        if (trimmed == "充電座" || lowerNoSpace == "homebase") {
+            return "home base"
         }
+
+        val clean = trimmed.replace(Regex("[\\s\\u3000]+"), "")
+        val upper = clean.uppercase()
+        if (Regex("^8\\d{2}[ABC]?$").matches(upper)) return upper.lowercase()
+
+        return clean
     }
 
     private fun forceStopEverything() {
@@ -224,7 +230,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         btnLinen.setOnClickListener { startGoToLocation("被服車", false) }
         btnWheelchair.setOnClickListener { startGoToLocation("輪椅區", false) }
         btnScale.setOnClickListener { startGoToLocation("體重計", false) }
-        btnCharge.setOnClickListener { startGoToLocation("home base", false) }
+        btnCharge.setOnClickListener { startGoToLocation("充電座", false) }
 
         btnFullTour.setOnClickListener {
             if (!robot.isReady) return@setOnClickListener
@@ -247,6 +253,8 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         if (!tourMode) isReturningToStart = false
 
         val normalizedLocation = normalizeTargetName(locationName)
+        activeTarget = normalizedLocation   // <- 補這行
+
         val displayName = if (normalizedLocation == "home base") "充電座" else normalizedLocation
 
         if (!tourMode) {
@@ -273,7 +281,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         // ✅ 病房模式：抵達目標病房後直接開 VideoActivity（自動播放）
         if (startVideoOnArrival && !arrivalConsumed) {
             val target = activeTarget?.trim().orEmpty()
-            if (target.isNotEmpty() && location == target) {
+            if (target.isNotEmpty() && location.equals(target, ignoreCase = true)) {
                 arrivalConsumed = true
                 val i = Intent(this, VideoActivity::class.java).apply {
                     putExtra(VideoActivity.EXTRA_MODE, videoMode)

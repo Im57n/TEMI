@@ -53,6 +53,10 @@ class BroadcastActivity : AppCompatActivity(),
         robot = Robot.getInstance()
         listView = findViewById(R.id.listview_broadcast_topics)
 
+
+        targetRoom = intent.getStringExtra(EXTRA_TARGET_ROOM).orEmpty().trim()
+        isRoomRouteBroadcast = targetRoom.isNotEmpty()
+
         setupListView()
         setupButtons()
     }
@@ -118,12 +122,20 @@ class BroadcastActivity : AppCompatActivity(),
         isPatrolling = true
         currentRouteIndex = 0 // 重置到路線的第一個點
 
-        // 取得第一個地點 (這裡是 "護理站")
+        // ✅ 病房導覽政策模式：從目前位置直接去目標病房，途中持續播報
+        if (isRoomRouteBroadcast) {
+            val goToTarget = normalizeRoomTarget(targetRoom) // 可選：處理 826A/826a
+            robot.goTo(goToTarget)
+            Toast.makeText(this, "開始政策宣導，前往：$goToTarget（途中持續播報）", Toast.LENGTH_SHORT).show()
+            speakLoop()
+            return
+        }
+
+        // ✅ 原本主畫面政策宣導：維持巡邏模式
         val firstLocation = patrolRoute[0]
         robot.goTo(firstLocation)
         Toast.makeText(this, "開始巡邏廣播，前往：$firstLocation", Toast.LENGTH_SHORT).show()
 
-        // 開始講話 (進入無限循環)
         speakLoop()
     }
 
@@ -143,32 +155,59 @@ class BroadcastActivity : AppCompatActivity(),
     }
 
     // 導航狀態監聽：自動接續下一個地點
-    override fun onGoToLocationStatusChanged(location: String, status: String, descriptionId: Int, description: String) {
+    override fun onGoToLocationStatusChanged(
+        location: String,
+        status: String,
+        descriptionId: Int,
+        description: String
+    ) {
         if (!isPatrolling) return
 
-        // 當抵達目前目標地點時 (Status = Complete)
-        if (status == "complete") {
-            // 索引 +1，準備去下一個點
-            currentRouteIndex++
+        // ✅ 病房導覽政策模式：抵達病房就結束
+        if (isRoomRouteBroadcast) {
+            if (status.equals("complete", ignoreCase = true) &&
+                location.equals(targetRoom, ignoreCase = true)
+            ) {
+                Toast.makeText(this, "已抵達 $location，政策宣導結束", Toast.LENGTH_SHORT).show()
+                stopBroadcast()
+                return
+            }
 
-            // 檢查是否還有下一個點
+            if (status.equals("abort", ignoreCase = true)) {
+                Toast.makeText(this, "導航中斷，停止政策宣導", Toast.LENGTH_LONG).show()
+                stopBroadcast()
+            }
+            return
+        }
+
+        // ✅ 原本巡邏模式（保留）
+        if (status.equals("complete", ignoreCase = true)) {
+            currentRouteIndex++
             if (currentRouteIndex < patrolRoute.size) {
                 val nextLocation = patrolRoute[currentRouteIndex]
                 Toast.makeText(this, "抵達 $location，轉往：$nextLocation", Toast.LENGTH_SHORT).show()
-
-                // 去下一個點
                 robot.goTo(nextLocation)
             } else {
-                // 如果索引超過清單長度，代表最後一站(護理站)也到了
                 Toast.makeText(this, "巡邏結束，已回到護理站！", Toast.LENGTH_LONG).show()
-                stopBroadcast() // 停止廣播、停止移動
+                stopBroadcast()
             }
-        }
-        else if (status == "abort") {
-            // 導航被中斷 (例如遇到障礙物太久)
+        } else if (status.equals("abort", ignoreCase = true)) {
             Toast.makeText(this, "導航中斷，停止廣播", Toast.LENGTH_LONG).show()
             stopBroadcast()
         }
+    }
+
+    companion object {
+        const val EXTRA_TARGET_ROOM = "extra_target_room"
+    }
+
+    private var targetRoom: String = ""
+    private var isRoomRouteBroadcast = false
+
+    private fun normalizeRoomTarget(raw: String): String {
+        val clean = raw.trim()
+        val upper = clean.uppercase()
+        return if (Regex("^8\\d{2}[ABC]?$").matches(upper)) upper.lowercase() else clean
     }
 
     private fun stopBroadcast() {
