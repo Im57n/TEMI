@@ -21,18 +21,34 @@
             android:textStyle="bold"
             android:layout_marginBottom="10dp"/>
 
-        <VideoView
-            android:id="@+id/video_view"
+        <!-- 加入 FrameLayout 將 VideoView 和 ImageView 疊在一起 -->
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:layout_marginBottom="10dp"
-            android:layout_gravity="center" />
+            android:layout_marginBottom="10dp">
 
+            <VideoView
+                android:id="@+id/video_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center" />
+
+            <!-- 這是播放 PPT 圖片必須要有的元件，預設隱藏 -->
+            <ImageView
+                android:id="@+id/img_slideshow"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center"
+                android:scaleType="fitCenter"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <!-- 將 columnCount 改為 3，讓 5 顆按鈕可以排成兩列 -->
         <GridLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:columnCount="4"
+            android:columnCount="3"
             android:alignmentMode="alignMargins">
 
             <Button
@@ -67,6 +83,21 @@
                 app:cornerRadius="20dp"
                 android:text="化療常見\n管路照護"
                 android:textSize="22sp" />
+
+            <!-- 新增：手術需知按鈕 (佔據兩格寬度) -->
+            <Button
+                android:id="@+id/btn_video_3"
+                android:layout_width="0dp"
+                android:layout_height="100dp"
+                android:layout_columnWeight="2"
+                android:layout_columnSpan="2"
+                android:layout_gravity="fill"
+                android:layout_margin="5dp"
+                app:cornerRadius="20dp"
+                android:backgroundTint="#FF9800"
+                android:text="手術需知"
+                android:textSize="22sp"
+                android:textColor="#FFFFFF" />
 
             <Button
                 android:id="@+id/btn_stop_video"
