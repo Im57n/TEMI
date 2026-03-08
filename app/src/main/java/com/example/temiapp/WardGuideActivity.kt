@@ -32,7 +32,7 @@ class WardGuideActivity : AppCompatActivity() {
         "802" to listOf("802"),
         "803" to listOf("803"),
         "805" to listOf("805"),
-        "806" to listOf("806A"),
+        "806" to listOf("806A", "806B"),                // ✅補：806B
         "807" to listOf("807A", "807B"),
         "808" to listOf("808A", "808B"),
         "809" to listOf("809A", "809B"),
@@ -43,12 +43,12 @@ class WardGuideActivity : AppCompatActivity() {
         "815" to listOf("815A", "815B"),
         "816" to listOf("816A", "816B"),
         "817" to listOf("817A", "817B"),
-        "818" to listOf("818A", "818B"),
+        "818" to listOf("818A", "818B", "818C"),        // ✅補：818C
         "819" to listOf("819A", "819B", "819C"),
         "820" to listOf("820A", "820B", "820C"),
         "821" to listOf("821A", "821B", "821C"),
         "822" to listOf("822A", "822B", "822C"),
-        "823" to listOf("823A", "823B"),
+        "823" to listOf("823A", "823B", "823C"),        // ✅補：823C
         "825" to listOf("825A", "825B", "825C"),
         "826" to listOf("826A", "826B", "826C"),
         "827" to listOf("827")

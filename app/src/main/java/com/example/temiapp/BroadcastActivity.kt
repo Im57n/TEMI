@@ -94,6 +94,9 @@ class BroadcastActivity : AppCompatActivity(),
         }
     }
 
+    private fun normNoSpace(s: String): String =
+        s.replace(Regex("[\\s\\u3000]+"), "").lowercase()
+
     private fun setupButtons() {
         // 開始廣播
         findViewById<Button>(R.id.btn_start_broadcast).setOnClickListener { startBroadcast() }
@@ -166,7 +169,7 @@ class BroadcastActivity : AppCompatActivity(),
         // ✅ 病房導覽政策模式：抵達病房就結束
         if (isRoomRouteBroadcast) {
             if (status.equals("complete", ignoreCase = true) &&
-                location.equals(targetRoom, ignoreCase = true)
+                normNoSpace(location) == normNoSpace(targetRoom)
             ) {
                 Toast.makeText(this, "已抵達 $location，政策宣導結束", Toast.LENGTH_SHORT).show()
                 stopBroadcast()
@@ -197,6 +200,7 @@ class BroadcastActivity : AppCompatActivity(),
         }
     }
 
+
     companion object {
         const val EXTRA_TARGET_ROOM = "extra_target_room"
     }
@@ -213,7 +217,7 @@ class BroadcastActivity : AppCompatActivity(),
     private fun stopBroadcast() {
         isPatrolling = false
         currentRouteIndex = 0
-        robot.stopMovement()         // 停止輪子
-        robot.cancelAllTtsRequests() // 停止說話
+        robot.stopMovement()
+        robot.cancelAllTtsRequests()
     }
 }

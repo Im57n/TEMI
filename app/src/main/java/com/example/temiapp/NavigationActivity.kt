@@ -52,6 +52,48 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
 
     private val handler = Handler(Looper.getMainLooper())
 
+    // --- helpers ---
+    private fun normNoSpace(s: String): String =
+        s.replace(Regex("[\\s\\u3000]+"), "").lowercase()
+
+    /**
+     * 將「內部 key」（例如 826a）解析成 Map 上實際存在的點位名稱（可能是 "826 a" / "826 A"）。
+     * 這樣就算 Map 的點位中間插空白，也能正常 goTo / 回報比對。
+     */
+    private fun resolveGoToName(internalKey: String): String {
+        val locs = try {
+            robot.locations
+        } catch (_: Exception) {
+            emptyList<String>()
+        }
+
+        if (locs.isEmpty()) return internalKey
+        if (locs.contains(internalKey)) return internalKey
+
+        // 病房：826a -> "826 a" / "826 A" 兩種常見
+        val m = Regex("^(8\\d{2})([a-z])$").find(internalKey)
+        if (m != null) {
+            val prefix = m.groupValues[1]
+            val suf = m.groupValues[2]
+            val cand1 = "$prefix $suf"
+            val cand2 = "$prefix ${suf.uppercase()}"
+            if (locs.contains(cand1)) return cand1
+            if (locs.contains(cand2)) return cand2
+        }
+
+        // 保底：用去空白後比對（避免 Map 名稱含全形空白/多空白）
+        val hit = locs.firstOrNull { normNoSpace(it) == normNoSpace(internalKey) }
+        return hit ?: internalKey
+    }
+
+    private fun isWardLocation(name: String): Boolean {
+        val key = name.replace(Regex("[\\s\\u3000]+"), "").uppercase()
+        return Regex("^8\\d{2}[ABC]?$").matches(key)
+    }
+
+    private fun wardKey(name: String): String =
+        name.replace(Regex("[\\s\\u3000]+"), "").lowercase()
+
     // --- 導覽文字設定 ---
     private val nursingStationText = "這裡是護理站和諮詢站，若您有任何醫療需求，請諮詢護理站人員；若您需要辦理出院或查詢住院費用請至諮詢站諮詢書記。"
     private val dirtyRoomText = "這裡是污物室，請依垃圾分類標示丟棄正確物品、衣服棉被請放入藍色污衣桶、尿布請丟棄至洗手台旁尿布垃圾桶，非醫療廢棄物請至配膳室執行垃圾分類。"
@@ -252,8 +294,12 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         isTouring = tourMode
         if (!tourMode) isReturningToStart = false
 
+        // 內部一律用「去空白後」的 key（病房 => 826a）
         val normalizedLocation = normalizeTargetName(locationName)
-        activeTarget = normalizedLocation   // <- 補這行
+        activeTarget = normalizedLocation
+
+        // 實際 goTo 時，對應到 Map 內真正存在的點位名稱（可能是 "826 a"）
+        val goToName = resolveGoToName(normalizedLocation)
 
         val displayName = if (normalizedLocation == "home base") "充電座" else normalizedLocation
 
@@ -262,8 +308,48 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         }
 
         robot.speak(TtsRequest.create("現在前往$displayName", false))
-        robot.goTo(normalizedLocation)
+        robot.goTo(goToName)
         Toast.makeText(this, "前往 $displayName", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showWardQuestionDialog(roomKey: String) {
+        if (isFinishing || isDestroyed) return
+
+        val dialog = Dialog(this)
+        currentDialog = dialog
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_question)
+        dialog.setCancelable(false)
+
+        val btnYes = dialog.findViewById<Button>(R.id.btn_yes)
+        val btnNo = dialog.findViewById<Button>(R.id.btn_no)
+
+        btnYes.setOnClickListener {
+            robot.speak(TtsRequest.create("請問有什麼需要幫忙的呢？", false))
+            dialog.dismiss()
+            currentDialog = null
+            startActivity(Intent(this, RoomActionMenuActivity::class.java).apply {
+                putExtra(RoomActionMenuActivity.EXTRA_ROOM, roomKey)
+            })
+            finish()
+        }
+
+        btnNo.setOnClickListener {
+            robot.speak(TtsRequest.create("好的，謝謝您，我現在回充電座。", false))
+            dialog.dismiss()
+            currentDialog = null
+
+            val i = Intent(this, NavigationActivity::class.java).apply {
+                putExtra(NavigationActivity.EXTRA_TARGET_LOCATION, "充電座")
+                putExtra(NavigationActivity.EXTRA_SOURCE_QUERY, "return_charge")
+                putExtra(NavigationActivity.EXTRA_START_VIDEO_ON_ARRIVAL, false)
+            }
+            startActivity(i)
+            finish()
+        }
+
+        dialog.show()
+        robot.speak(TtsRequest.create("請問是否還有其他問題？", false))
     }
 
     private fun handleArrivalLogic(location: String) {
@@ -281,7 +367,8 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         // ✅ 病房模式：抵達目標病房後直接開 VideoActivity（自動播放）
         if (startVideoOnArrival && !arrivalConsumed) {
             val target = activeTarget?.trim().orEmpty()
-            if (target.isNotEmpty() && location.equals(target, ignoreCase = true)) {
+            // Map 回報可能是 "826 a"，activeTarget 可能是 "826a"，所以用「去空白後」比對
+            if (target.isNotEmpty() && normNoSpace(location) == normNoSpace(target)) {
                 arrivalConsumed = true
                 val i = Intent(this, VideoActivity::class.java).apply {
                     putExtra(VideoActivity.EXTRA_MODE, videoMode)
@@ -315,6 +402,13 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
             if (location == "home base" || location == "充電座") {
                 robot.speak(TtsRequest.create("很高興為您服務，我現在要充電了。"))
             } else {
+                // ✅ 抵達病房：如果不是自動播片模式，抵達後詢問是否還有問題
+                if (!isTouring && isWardLocation(location)) {
+                    hideOverlayUI()
+                    showWardQuestionDialog(wardKey(location))
+                    return
+                }
+
                 robot.speak(TtsRequest.create("$location 到了。"))
             }
             if (!isTouring) hideOverlayUI()

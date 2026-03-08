@@ -11,7 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
  * 病床選好後先停在這頁，讓使用者先決定要「衛教宣導」或「政策宣導」。
  *
  * ✅ 衛教宣導：先進 VideoActivity 選影片；選完影片才去病房，抵達後自動播放。
- * ✅ 政策宣導：沿用 BroadcastActivity（先不去病房）。
+ * ✅ 政策宣導：進 BroadcastActivity，並帶入目標病房。
  */
 class RoomActionMenuActivity : AppCompatActivity() {
 
@@ -30,17 +30,20 @@ class RoomActionMenuActivity : AppCompatActivity() {
             val i = Intent(this, VideoActivity::class.java).apply {
                 putExtra(VideoActivity.EXTRA_MODE, VideoActivity.MODE_HEALTH_EDU)
                 putExtra(VideoActivity.EXTRA_ROOM, room)
-                putExtra(BroadcastActivity.EXTRA_TARGET_ROOM, room)
-                // 影片播放完要詢問「是否還有其他問題」；選「沒有」就回充電座
                 putExtra(VideoActivity.EXTRA_AFTER_ASK_AND_CHARGE, true)
             }
             startActivity(i)
         }
 
         findViewById<Button>(R.id.btn_policy).setOnClickListener {
-            startActivity(Intent(this, BroadcastActivity::class.java))
+            val i = Intent(this, BroadcastActivity::class.java).apply {
+                putExtra(BroadcastActivity.EXTRA_TARGET_ROOM, room)
+            }
+            startActivity(i)
         }
 
-        findViewById<Button>(R.id.btn_back).setOnClickListener { finish() }
+        findViewById<Button>(R.id.btn_back).setOnClickListener {
+            finish()
+        }
     }
 }

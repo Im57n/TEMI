@@ -251,8 +251,14 @@ class VideoActivity : AppCompatActivity() {
 
         btnNo.setOnClickListener {
             robot.speak(TtsRequest.create("好的，謝謝您，我現在回充電座。", false))
-            try { robot.goTo("home base") } catch (_: Exception) {}
             dialog.dismiss()
+
+            val i = Intent(this, NavigationActivity::class.java).apply {
+                putExtra(NavigationActivity.EXTRA_TARGET_LOCATION, "充電座")
+                putExtra(NavigationActivity.EXTRA_SOURCE_QUERY, "return_charge")
+                putExtra(NavigationActivity.EXTRA_START_VIDEO_ON_ARRIVAL, false)
+            }
+            startActivity(i)
             finish()
         }
 

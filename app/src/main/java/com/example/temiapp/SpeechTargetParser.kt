@@ -5,14 +5,14 @@ object SpeechTargetParser {
     // 每個 8XX 允許的尾碼；"" 代表可無尾碼
     private val wardOptions: Map<String, List<String>> = linkedMapOf(
         "801" to listOf(""), "802" to listOf(""), "803" to listOf(""), "805" to listOf(""),
-        "806" to listOf("A"),
+        "806" to listOf("A", "B"),                 // ✅補：B
         "807" to listOf("A", "B"), "808" to listOf("A", "B"), "809" to listOf("A", "B"),
         "810" to listOf("A", "B"), "811" to listOf("A", "B"), "812" to listOf("A", "B"),
         "813" to listOf("A", "B"), "815" to listOf("A", "B"), "816" to listOf("A", "B"),
-        "817" to listOf("A", "B"), "818" to listOf("A", "B"),
+        "817" to listOf("A", "B"), "818" to listOf("A", "B", "C"), // ✅補：C
         "819" to listOf("A", "B", "C"), "820" to listOf("A", "B", "C"),
         "821" to listOf("A", "B", "C"), "822" to listOf("A", "B", "C"),
-        "823" to listOf("A", "B"),
+        "823" to listOf("A", "B", "C"),            // ✅補：C
         "825" to listOf("A", "B", "C"), "826" to listOf("A", "B", "C"),
         "827" to listOf("")
     )
