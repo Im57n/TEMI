@@ -9,6 +9,7 @@ import android.view.Window
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import android.widget.VideoView
 import androidx.appcompat.app.AppCompatActivity
@@ -43,6 +44,7 @@ class VideoActivity : AppCompatActivity() {
     // 媒體播放元件
     private lateinit var videoView: VideoView
     private lateinit var imgSlideshow: ImageView
+    private lateinit var tvSubtitle: TextView // ✅ 新增字幕 TextView
 
     // 全螢幕控制按鈕
     private lateinit var btnPauseResume: Button
@@ -103,6 +105,7 @@ class VideoActivity : AppCompatActivity() {
 
         videoView = findViewById(R.id.video_view)
         imgSlideshow = findViewById(R.id.img_slideshow)
+        tvSubtitle = findViewById(R.id.tv_subtitle) // ✅ 綁定字幕元件
 
         btnPauseResume = findViewById(R.id.btn_pause_resume)
         btnExitMedia = findViewById(R.id.btn_exit_media)
@@ -209,6 +212,7 @@ class VideoActivity : AppCompatActivity() {
             if (resId != 0) {
                 isPlayingSlideshow = false
                 imgSlideshow.visibility = View.GONE
+                tvSubtitle.visibility = View.GONE // ✅ 播放傳統 MP4 時隱藏字幕
                 videoView.visibility = View.VISIBLE
 
                 val uri = Uri.parse("android.resource://$packageName/$resId")
@@ -229,6 +233,7 @@ class VideoActivity : AppCompatActivity() {
 
         videoView.visibility = View.GONE
         imgSlideshow.visibility = View.VISIBLE
+        tvSubtitle.visibility = View.VISIBLE // ✅ 播放 PPT 幻燈片時顯示字幕區塊
         playCurrentSlide()
     }
 
@@ -236,6 +241,10 @@ class VideoActivity : AppCompatActivity() {
         if (!isPlayingSlideshow || isMediaPaused) return
         val slide = currentSlidesList[currentSlideIndex]
         imgSlideshow.setImageResource(slide.imageResId)
+
+        // ✅ 同步更新字幕文字
+        tvSubtitle.text = slide.textToSpeak
+
         robot.speak(TtsRequest.create(slide.textToSpeak, false))
     }
 
@@ -257,6 +266,7 @@ class VideoActivity : AppCompatActivity() {
         layoutFullscreen.visibility = View.GONE
         videoView.visibility = View.GONE
         imgSlideshow.visibility = View.GONE
+        tvSubtitle.visibility = View.GONE // ✅ 停止播放時隱藏字幕
         layoutMenu.visibility = View.VISIBLE
         btnBack.visibility = View.VISIBLE
     }

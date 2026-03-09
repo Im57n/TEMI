@@ -41,7 +41,7 @@
                 android:layout_margin="10dp"
                 app:cornerRadius="20dp"
                 android:text="病房須知"
-                android:textSize="28sp" />
+                android:textSize="36sp" />
 
             <Button
                 android:id="@+id/btn_video_1"
@@ -52,7 +52,7 @@
                 android:layout_margin="10dp"
                 app:cornerRadius="20dp"
                 android:text="口腔清潔"
-                android:textSize="28sp" />
+                android:textSize="36sp" />
 
             <Button
                 android:id="@+id/btn_video_2"
@@ -63,9 +63,8 @@
                 android:layout_margin="10dp"
                 app:cornerRadius="20dp"
                 android:text="化療常見\n管路照護"
-                android:textSize="28sp" />
+                android:textSize="36sp" />
 
-            <!-- 手術需知：拿掉特殊顏色與跨欄設定，與其他按鈕完全一致 -->
             <Button
                 android:id="@+id/btn_video_3"
                 android:layout_width="0dp"
@@ -75,11 +74,10 @@
                 android:layout_margin="10dp"
                 app:cornerRadius="20dp"
                 android:text="手術需知"
-                android:textSize="28sp" />
+                android:textSize="36sp" />
         </GridLayout>
     </LinearLayout>
 
-    <!-- 返回主畫面按鈕 (僅在選單頁面顯示) -->
     <Button
         android:id="@+id/btn_back"
         android:layout_width="120dp"
@@ -104,14 +102,12 @@
         android:background="#000000"
         android:visibility="gone">
 
-        <!-- 影片播放區 -->
         <VideoView
             android:id="@+id/video_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_gravity="center" />
 
-        <!-- PPT 圖片播放區 -->
         <ImageView
             android:id="@+id/img_slideshow"
             android:layout_width="match_parent"
@@ -119,39 +115,58 @@
             android:layout_gravity="center"
             android:scaleType="fitCenter" />
 
-        <!-- 浮動控制按鈕區 (暫停/退出) -->
-        <LinearLayout
-            android:layout_width="wrap_content"
+        <!-- ✅ 獨立設定：暫停按鈕 (左下角，調整 margin 讓它更靠邊緣) -->
+        <Button
+            android:id="@+id/btn_pause_resume"
+            android:layout_width="160dp"
+            android:layout_height="70dp"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="20dp"
+            android:layout_marginBottom="20dp"
+            android:text="暫停播放"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#FF9800"
+            app:cornerRadius="35dp"
+            android:elevation="10dp"/>
+
+        <!-- ✅ 字幕顯示區塊 (半透明黑底白字，夾在按鈕之間) -->
+        <TextView
+            android:id="@+id/tv_subtitle"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
             android:layout_gravity="bottom|center_horizontal"
-            android:layout_marginBottom="40dp">
+            android:layout_marginStart="200dp"
+            android:layout_marginEnd="200dp"
+            android:layout_marginBottom="20dp"
+            android:minHeight="70dp"
+            android:background="#99000000"
+            android:padding="10dp"
+            android:text=""
+            android:textColor="#FFFFFF"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:elevation="10dp"
+            android:visibility="gone" />
 
-            <Button
-                android:id="@+id/btn_pause_resume"
-                android:layout_width="160dp"
-                android:layout_height="70dp"
-                android:text="暫停播放"
-                android:textSize="24sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#FF9800"
-                app:cornerRadius="35dp"
-                android:layout_marginEnd="30dp"
-                android:elevation="10dp"/>
+        <!-- ✅ 獨立設定：退出影片按鈕 (右下角，調整 margin 讓它更靠邊緣) -->
+        <Button
+            android:id="@+id/btn_exit_media"
+            android:layout_width="160dp"
+            android:layout_height="70dp"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="20dp"
+            android:text="退出影片"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#F44336"
+            app:cornerRadius="35dp"
+            android:elevation="10dp"/>
 
-            <Button
-                android:id="@+id/btn_exit_media"
-                android:layout_width="160dp"
-                android:layout_height="70dp"
-                android:text="退出影片"
-                android:textSize="24sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#F44336"
-                app:cornerRadius="35dp"
-                android:elevation="10dp"/>
-        </LinearLayout>
     </FrameLayout>
 
 </FrameLayout>
