@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#FFFFFF"
-    android:padding="10dp">
+    android:padding="20dp">
 
     <!-- 標題列 -->
     <LinearLayout
@@ -12,7 +12,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="8dp">
+        android:layout_marginBottom="16dp">
 
         <TextView
             android:id="@+id/tv_title"
@@ -20,7 +20,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="病房導覽：請選病房"
-            android:textSize="18sp"
+            android:textSize="32sp"
             android:textStyle="bold"
             android:textColor="#333333"
             android:maxLines="1"
@@ -29,16 +29,16 @@
         <Button
             android:id="@+id/btn_back"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:minWidth="96dp"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp"
+            android:layout_height="60dp"
+            android:minWidth="120dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
             android:text="Back"
             android:textAllCaps="false"
             android:maxLines="1"
             android:singleLine="true"
             android:ellipsize="none"
-            android:textSize="14sp"
+            android:textSize="24sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
             android:backgroundTint="#757575" />
@@ -46,6 +46,7 @@
     </LinearLayout>
 
     <!-- 第一層：只放 8XX -->
+    <!-- 這裡的按鈕字體大小是由 Kotlin 程式碼 (WardGuideActivity.kt) 控制的 -->
     <GridLayout
         android:id="@+id/prefix_grid"
         android:layout_width="match_parent"
@@ -59,9 +60,10 @@
         android:id="@+id/tv_selected_ward"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="8dp"
         android:text="目前選擇：尚未選擇"
-        android:textSize="16sp"
+        android:textSize="28sp"
         android:textStyle="bold"
         android:textColor="#333333"
         android:gravity="center_horizontal"

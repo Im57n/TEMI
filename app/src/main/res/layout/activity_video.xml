@@ -5,116 +5,81 @@
     android:layout_height="match_parent"
     android:background="#FFFFFF">
 
+    <!-- ========================================== -->
+    <!-- 1. 選單畫面 (預設顯示) -->
+    <!-- ========================================== -->
     <LinearLayout
+        android:id="@+id/layout_menu"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="16dp"
-        android:gravity="center_horizontal"
-        android:layout_marginTop="30dp">
+        android:padding="30dp"
+        android:gravity="center">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="衛教影片播放中心"
-            android:textSize="32sp"
+            android:textSize="40sp"
             android:textStyle="bold"
-            android:layout_marginBottom="10dp"/>
+            android:textColor="#333333"
+            android:layout_marginBottom="50dp"/>
 
-        <!-- 加入 FrameLayout 將 VideoView 和 ImageView 疊在一起 -->
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:layout_marginBottom="10dp">
-
-            <VideoView
-                android:id="@+id/video_view"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_gravity="center" />
-
-            <!-- 這是播放 PPT 圖片必須要有的元件，預設隱藏 -->
-            <ImageView
-                android:id="@+id/img_slideshow"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_gravity="center"
-                android:scaleType="fitCenter"
-                android:visibility="gone" />
-        </FrameLayout>
-
-        <!-- 將 columnCount 改為 3，讓 5 顆按鈕可以排成兩列 -->
+        <!-- 4顆按鈕：改為 2x2 均分排列 -->
         <GridLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:columnCount="3"
+            android:columnCount="2"
             android:alignmentMode="alignMargins">
 
             <Button
                 android:id="@+id/btn_play_all"
                 android:layout_width="0dp"
-                android:layout_height="100dp"
+                android:layout_height="140dp"
                 android:layout_columnWeight="1"
                 android:layout_gravity="fill"
-                android:layout_margin="5dp"
+                android:layout_margin="10dp"
                 app:cornerRadius="20dp"
                 android:text="病房須知"
-                android:textSize="22sp" />
+                android:textSize="28sp" />
 
             <Button
                 android:id="@+id/btn_video_1"
                 android:layout_width="0dp"
-                android:layout_height="100dp"
+                android:layout_height="140dp"
                 android:layout_columnWeight="1"
                 android:layout_gravity="fill"
-                android:layout_margin="5dp"
+                android:layout_margin="10dp"
                 app:cornerRadius="20dp"
                 android:text="口腔清潔"
-                android:textSize="22sp" />
+                android:textSize="28sp" />
 
             <Button
                 android:id="@+id/btn_video_2"
                 android:layout_width="0dp"
-                android:layout_height="100dp"
+                android:layout_height="140dp"
                 android:layout_columnWeight="1"
                 android:layout_gravity="fill"
-                android:layout_margin="5dp"
+                android:layout_margin="10dp"
                 app:cornerRadius="20dp"
                 android:text="化療常見\n管路照護"
-                android:textSize="22sp" />
+                android:textSize="28sp" />
 
-            <!-- 新增：手術需知按鈕 (佔據兩格寬度) -->
+            <!-- 手術需知：拿掉特殊顏色與跨欄設定，與其他按鈕完全一致 -->
             <Button
                 android:id="@+id/btn_video_3"
                 android:layout_width="0dp"
-                android:layout_height="100dp"
-                android:layout_columnWeight="2"
-                android:layout_columnSpan="2"
-                android:layout_gravity="fill"
-                android:layout_margin="5dp"
-                app:cornerRadius="20dp"
-                android:backgroundTint="#FF9800"
-                android:text="手術需知"
-                android:textSize="22sp"
-                android:textColor="#FFFFFF" />
-
-            <Button
-                android:id="@+id/btn_stop_video"
-                android:layout_width="0dp"
-                android:layout_height="100dp"
+                android:layout_height="140dp"
                 android:layout_columnWeight="1"
                 android:layout_gravity="fill"
-                android:layout_margin="5dp"
-                android:backgroundTint="#F44336"
-                android:text="停止播放"
-                android:textSize="22sp"
-                android:textColor="#FFFFFF"
-                app:cornerRadius="20dp" />
+                android:layout_margin="10dp"
+                app:cornerRadius="20dp"
+                android:text="手術需知"
+                android:textSize="28sp" />
         </GridLayout>
-
     </LinearLayout>
 
+    <!-- 返回主畫面按鈕 (僅在選單頁面顯示) -->
     <Button
         android:id="@+id/btn_back"
         android:layout_width="120dp"
@@ -126,7 +91,67 @@
         android:layout_gravity="top|end"
         android:layout_marginTop="20dp"
         android:layout_marginEnd="20dp"
-        android:backgroundTint="#F44336"
+        android:backgroundTint="#757575"
         app:cornerRadius="10dp" />
+
+    <!-- ========================================== -->
+    <!-- 2. 全螢幕播放畫面 (預設隱藏，點擊影片後才出現) -->
+    <!-- ========================================== -->
+    <FrameLayout
+        android:id="@+id/layout_fullscreen_media"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000"
+        android:visibility="gone">
+
+        <!-- 影片播放區 -->
+        <VideoView
+            android:id="@+id/video_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center" />
+
+        <!-- PPT 圖片播放區 -->
+        <ImageView
+            android:id="@+id/img_slideshow"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:scaleType="fitCenter" />
+
+        <!-- 浮動控制按鈕區 (暫停/退出) -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="40dp">
+
+            <Button
+                android:id="@+id/btn_pause_resume"
+                android:layout_width="160dp"
+                android:layout_height="70dp"
+                android:text="暫停播放"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#FF9800"
+                app:cornerRadius="35dp"
+                android:layout_marginEnd="30dp"
+                android:elevation="10dp"/>
+
+            <Button
+                android:id="@+id/btn_exit_media"
+                android:layout_width="160dp"
+                android:layout_height="70dp"
+                android:text="退出影片"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#F44336"
+                app:cornerRadius="35dp"
+                android:elevation="10dp"/>
+        </LinearLayout>
+    </FrameLayout>
 
 </FrameLayout>

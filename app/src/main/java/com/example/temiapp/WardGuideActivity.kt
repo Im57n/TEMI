@@ -32,7 +32,7 @@ class WardGuideActivity : AppCompatActivity() {
         "802" to listOf("802"),
         "803" to listOf("803"),
         "805" to listOf("805"),
-        "806" to listOf("806A", "806B"),                // ✅補：806B
+        "806" to listOf("806A", "806B"),
         "807" to listOf("807A", "807B"),
         "808" to listOf("808A", "808B"),
         "809" to listOf("809A", "809B"),
@@ -43,12 +43,12 @@ class WardGuideActivity : AppCompatActivity() {
         "815" to listOf("815A", "815B"),
         "816" to listOf("816A", "816B"),
         "817" to listOf("817A", "817B"),
-        "818" to listOf("818A", "818B", "818C"),        // ✅補：818C
+        "818" to listOf("818A", "818B", "818C"),
         "819" to listOf("819A", "819B", "819C"),
         "820" to listOf("820A", "820B", "820C"),
         "821" to listOf("821A", "821B", "821C"),
         "822" to listOf("822A", "822B", "822C"),
-        "823" to listOf("823A", "823B", "823C"),        // ✅補：823C
+        "823" to listOf("823A", "823B", "823C"),
         "825" to listOf("825A", "825B", "825C"),
         "826" to listOf("826A", "826B", "826C"),
         "827" to listOf("827")
@@ -74,8 +74,8 @@ class WardGuideActivity : AppCompatActivity() {
         prefixGrid.rowCount = ceil(prefixList.size / columns.toDouble()).toInt()
 
         val isTablet = resources.configuration.smallestScreenWidthDp >= 600
-        val btnHeight = if (isTablet) dp(92) else dp(72)
-        val btnTextSize = if (isTablet) 24f else 20f
+        // ✅ [放大字體] 主畫面的病房號碼字體放大 (平板從 24f 改為 36f)
+        val btnTextSize = if (isTablet) 36f else 28f
         val margin = if (isTablet) dp(6) else dp(4)
         val radius = if (isTablet) 18 else 14
 
@@ -99,11 +99,11 @@ class WardGuideActivity : AppCompatActivity() {
             }
 
             val lp = GridLayout.LayoutParams(
-                GridLayout.spec(row),
-                GridLayout.spec(col, 1f)
+                GridLayout.spec(row, GridLayout.FILL, 1f),
+                GridLayout.spec(col, GridLayout.FILL, 1f)
             ).apply {
                 width = 0
-                height = btnHeight
+                height = 0
                 setMargins(margin, margin, margin, margin)
             }
 
@@ -133,7 +133,8 @@ class WardGuideActivity : AppCompatActivity() {
 
         val title = TextView(this).apply {
             text = "請選擇病房"
-            textSize = 34f
+            // ✅ [放大字體] 彈出視窗標題放大
+            textSize = 44f
             setTypeface(null, Typeface.BOLD)
             setTextColor(Color.parseColor("#212121"))
             setPadding(0, 0, 0, dp(14))
@@ -144,9 +145,10 @@ class WardGuideActivity : AppCompatActivity() {
             val btn = Button(this).apply {
                 text = room
                 isAllCaps = false
-                textSize = 30f
+                // ✅ [放大字體] 彈出視窗內的選項按鈕字體放大
+                textSize = 38f
                 setTextColor(Color.WHITE)
-                background = roundedBg("#6750A4", 18)
+                background = roundedBg("#6750A4", 20)
                 setOnClickListener {
                     dialog?.dismiss()
                     applySelection(prefixBtn, room)
@@ -157,7 +159,7 @@ class WardGuideActivity : AppCompatActivity() {
                 btn,
                 LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(88)
+                    dp(100) // ✅ 按鈕高度配合字體加大 (從 88dp 增加到 100dp)
                 ).apply { topMargin = if (idx == 0) 0 else dp(12) }
             )
         }
@@ -186,9 +188,6 @@ class WardGuideActivity : AppCompatActivity() {
             putExtra(RoomActionMenuActivity.EXTRA_ROOM, room)
         }
         startActivity(i)
-
-        // ✅建議先不要 finish()，這樣你按返回還回得來選別間
-        // finish()
     }
 
     private fun calculateColumns(): Int {

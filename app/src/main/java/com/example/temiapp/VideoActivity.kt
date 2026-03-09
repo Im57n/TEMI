@@ -8,6 +8,7 @@ import android.view.View
 import android.view.Window
 import android.widget.Button
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.Toast
 import android.widget.VideoView
 import androidx.appcompat.app.AppCompatActivity
@@ -24,41 +25,40 @@ class VideoActivity : AppCompatActivity() {
         const val EXTRA_AUTOPLAY_KEY = "extra_autoplay_key"
         const val EXTRA_AFTER_ASK_AND_CHARGE = "extra_after_ask_and_charge"
 
-        // 影片/幻燈片 key
         const val KEY_WARD_NOTICE = "ward_notice"
         const val KEY_ORAL_CLEAN = "oral_clean"
         const val KEY_CHEMO_TUBE = "chemo_tube"
-        const val KEY_SURGERY_NOTICE = "surgery_notice" // 手術前後注意事項
+        const val KEY_SURGERY_NOTICE = "surgery_notice"
     }
 
-    // 定義幻燈片資料結構
     data class Slide(val imageResId: Int, val textToSpeak: String)
 
     private lateinit var robot: Robot
 
-    private lateinit var videoView: VideoView
-    private lateinit var imgSlideshow: ImageView // 用來播圖片的 ImageView
-
-    // UI 按鈕
-    private lateinit var btnPlayAll: Button
-    private lateinit var btnVideo1: Button
-    private lateinit var btnVideo2: Button
-    private lateinit var btnVideo3: Button
-    private lateinit var btnStop: Button
+    // 介面佈局元件
+    private lateinit var layoutMenu: LinearLayout
+    private lateinit var layoutFullscreen: View
     private lateinit var btnBack: Button
+
+    // 媒體播放元件
+    private lateinit var videoView: VideoView
+    private lateinit var imgSlideshow: ImageView
+
+    // 全螢幕控制按鈕
+    private lateinit var btnPauseResume: Button
+    private lateinit var btnExitMedia: Button
 
     private var mode: String = MODE_HEALTH_EDU
     private var room: String = ""
     private var autoplayKey: String = ""
     private var afterAskAndCharge: Boolean = false
 
-    // === 幻燈片控制變數 ===
+    // 播放狀態變數
     private var isPlayingSlideshow = false
+    private var isMediaPaused = false
     private var currentSlideIndex = 0
     private var currentSlidesList: List<Slide> = emptyList()
 
-    // ✅ 這裡已經為您更新了 5 頁的精準台詞！
-    // 只要 res/drawable 裡面有 slide_1 到 slide_5 的圖片，就能完美對應播放
     private val surgerySlides = listOf(
         Slide(R.drawable.slide_1, "大多數病人及家屬在得知將進行手術治療時，都非常緊張，這是一種正常的反應，為了讓您減少緊張的情緒且了解一般手術的準備過程，請您詳閱以下有關手術前及手術後注意事項："),
         Slide(R.drawable.slide_2, "手術前 1.提醒您若有慢性病應事先告知醫師服用的藥物，評估是否繼續服用。 2. 清潔 手術前一晚請先洗淨身體，包括洗頭、刮鬍子、剪指甲，腹部手術者需特別注意肚臍的清潔。 3. 住院手術前，請去除指甲油(包含光療指甲及水晶指甲) 4. 手術前各項檢查及準備 您在入院後，會做一些例行性的檢查(如心電圖、X 光、抽血、尿液等)。"),
@@ -67,21 +67,16 @@ class VideoActivity : AppCompatActivity() {
         Slide(R.drawable.slide_5, "手術結束後，全身麻醉及腰椎麻醉的病人會先送到恢復室休息，等清醒後再送回病房。 手術後可能發生之問題有 1. 喉嚨痛：因手術時喉內插氣管內管之故，約 1～2 天會改善。 2. 傷口痛：傷口疼痛時請告知醫師或護理師，我們會幫忙病人處理。 3. 嘔吐：若有嘔吐，請告知護理師，並將頭偏一側，可利用塑膠袋接嘔吐物。 4. 傷口引流管：手術後若有引流管，請勿移動它。 5. 更換傷口敷料：醫師會訂定更換傷口敷料的頻率及方式，醫師或護理師會為病人進行換藥。 6. 翻身、咳嗽及深呼吸：為了病人術後肺功能之正常及早日康復，請多翻身及拍背咳痰。 最後手術後醫護人員依照您的恢復狀況來做更完善的手術後治療與照顧，且會循序漸進安排您的手術後活動，最重要的必須您本身的配合才能使得手術後的不適減至最低且迅速恢復。成大醫院關心您!!")
     )
 
-    // 監聽 Temi 是否唸完台詞的 Listener
     private val ttsListener = object : Robot.TtsListener {
         override fun onTtsStatusChanged(ttsRequest: TtsRequest) {
-            // 當 Temi 唸完當前這句話
             if (ttsRequest.status == TtsRequest.Status.COMPLETED) {
-                if (isPlayingSlideshow) {
+                if (isPlayingSlideshow && !isMediaPaused) {
                     currentSlideIndex++
                     runOnUiThread {
                         if (currentSlideIndex < currentSlidesList.size) {
-                            // 還有下一張，繼續播
                             playCurrentSlide()
                         } else {
-                            // 幻燈片播完了
-                            isPlayingSlideshow = false
-                            if (afterAskAndCharge) showQuestionDialog()
+                            onPlaybackFinished()
                         }
                     }
                 }
@@ -94,52 +89,78 @@ class VideoActivity : AppCompatActivity() {
         setContentView(R.layout.activity_video)
 
         robot = Robot.getInstance()
-        robot.addTtsListener(ttsListener) // 註冊語音監聽器
+        robot.addTtsListener(ttsListener)
 
         mode = intent.getStringExtra(EXTRA_MODE) ?: MODE_HEALTH_EDU
         room = intent.getStringExtra(EXTRA_ROOM).orEmpty().trim()
         autoplayKey = intent.getStringExtra(EXTRA_AUTOPLAY_KEY).orEmpty().trim()
         afterAskAndCharge = intent.getBooleanExtra(EXTRA_AFTER_ASK_AND_CHARGE, false)
 
-        videoView = findViewById(R.id.video_view)
-        imgSlideshow = findViewById(R.id.img_slideshow) // 綁定 ImageView
-
-        btnPlayAll = findViewById(R.id.btn_play_all)
-        btnVideo1 = findViewById(R.id.btn_video_1)
-        btnVideo2 = findViewById(R.id.btn_video_2)
-        btnVideo3 = findViewById(R.id.btn_video_3)
-        btnStop = findViewById(R.id.btn_stop_video)
+        // 綁定 UI 佈局
+        layoutMenu = findViewById(R.id.layout_menu)
+        layoutFullscreen = findViewById(R.id.layout_fullscreen_media)
         btnBack = findViewById(R.id.btn_back)
 
-        btnBack.setOnClickListener {
-            stopEverything()
-            finish()
-        }
+        videoView = findViewById(R.id.video_view)
+        imgSlideshow = findViewById(R.id.img_slideshow)
 
+        btnPauseResume = findViewById(R.id.btn_pause_resume)
+        btnExitMedia = findViewById(R.id.btn_exit_media)
+
+        // 主選單按鈕事件
+        findViewById<Button>(R.id.btn_play_all).setOnClickListener { onPick(KEY_WARD_NOTICE) }
+        findViewById<Button>(R.id.btn_video_1).setOnClickListener { onPick(KEY_ORAL_CLEAN) }
+        findViewById<Button>(R.id.btn_video_2).setOnClickListener { onPick(KEY_CHEMO_TUBE) }
+        findViewById<Button>(R.id.btn_video_3).setOnClickListener { onPick(KEY_SURGERY_NOTICE) }
+
+        btnBack.setOnClickListener { finish() }
+
+        // 影片播放完畢事件
         videoView.setOnCompletionListener {
-            if (afterAskAndCharge && !isPlayingSlideshow) showQuestionDialog()
+            onPlaybackFinished()
         }
 
-        btnStop.setOnClickListener {
+        // 全螢幕控制：退出影片
+        btnExitMedia.setOnClickListener {
             stopEverything()
-            Toast.makeText(this, "播放已停止", Toast.LENGTH_SHORT).show()
+        }
+
+        // 全螢幕控制：暫停 / 繼續
+        btnPauseResume.setOnClickListener {
+            if (isMediaPaused) {
+                // 執行繼續
+                isMediaPaused = false
+                btnPauseResume.text = "暫停播放"
+                btnPauseResume.setBackgroundColor(android.graphics.Color.parseColor("#FF9800")) // 橘色
+
+                if (isPlayingSlideshow) {
+                    playCurrentSlide() // 重唸這一頁
+                } else {
+                    videoView.start()
+                }
+            } else {
+                // 執行暫停
+                isMediaPaused = true
+                btnPauseResume.text = "繼續播放"
+                btnPauseResume.setBackgroundColor(android.graphics.Color.parseColor("#4CAF50")) // 綠色
+
+                if (isPlayingSlideshow) {
+                    robot.cancelAllTtsRequests() // 讓機器人閉嘴
+                } else {
+                    videoView.pause()
+                }
+            }
         }
 
         // 抵達後自動播放
         if (autoplayKey.isNotEmpty()) {
             playByKey(autoplayKey)
         }
-
-        // 按鈕點擊事件
-        btnPlayAll.setOnClickListener { onPick(KEY_WARD_NOTICE) }
-        btnVideo1.setOnClickListener { onPick(KEY_ORAL_CLEAN) }
-        btnVideo2.setOnClickListener { onPick(KEY_CHEMO_TUBE) }
-        btnVideo3.setOnClickListener { onPick(KEY_SURGERY_NOTICE) } // 手術注意事項(PPT)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        robot.removeTtsListener(ttsListener) // 記得註銷監聽器，避免記憶體流失
+        robot.removeTtsListener(ttsListener)
         stopEverything()
     }
 
@@ -160,13 +181,21 @@ class VideoActivity : AppCompatActivity() {
     }
 
     private fun playByKey(key: String) {
-        stopEverything() // 播新內容前先清空舊的
+        // 切換 UI：隱藏主選單，顯示全螢幕黑底
+        layoutMenu.visibility = View.GONE
+        btnBack.visibility = View.GONE
+        layoutFullscreen.visibility = View.VISIBLE
+
+        // 重置按鈕狀態
+        isMediaPaused = false
+        btnPauseResume.text = "暫停播放"
+        btnPauseResume.setBackgroundColor(android.graphics.Color.parseColor("#FF9800"))
 
         if (key == KEY_SURGERY_NOTICE) {
-            // ✅ 模式 A：播放幻燈片 + 語音
+            // 模式 A：播放幻燈片
             startSlideshow(surgerySlides)
         } else {
-            // ✅ 模式 B：播放傳統 MP4 影片
+            // 模式 B：播放 MP4
             val rawName = when (key) {
                 KEY_WARD_NOTICE -> "safety_guide"
                 KEY_ORAL_CLEAN -> "oral_hygiene"
@@ -178,7 +207,7 @@ class VideoActivity : AppCompatActivity() {
 
             val resId = resources.getIdentifier(rawName, "raw", packageName)
             if (resId != 0) {
-                // 切換 UI：顯示影片，隱藏圖片
+                isPlayingSlideshow = false
                 imgSlideshow.visibility = View.GONE
                 videoView.visibility = View.VISIBLE
 
@@ -186,45 +215,50 @@ class VideoActivity : AppCompatActivity() {
                 videoView.setVideoURI(uri)
                 videoView.start()
             } else {
-                Toast.makeText(this, "找不到影片檔: $rawName", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "找不到影片檔", Toast.LENGTH_SHORT).show()
+                stopEverything() // 找不到就退回選單
             }
         }
     }
 
-    // === 幻燈片控制核心邏輯 ===
     private fun startSlideshow(slides: List<Slide>) {
         if (slides.isEmpty()) return
-
         currentSlidesList = slides
         currentSlideIndex = 0
         isPlayingSlideshow = true
 
-        // 切換 UI：隱藏影片，顯示圖片
         videoView.visibility = View.GONE
         imgSlideshow.visibility = View.VISIBLE
-
         playCurrentSlide()
     }
 
     private fun playCurrentSlide() {
-        if (!isPlayingSlideshow) return
+        if (!isPlayingSlideshow || isMediaPaused) return
         val slide = currentSlidesList[currentSlideIndex]
-
-        // 1. 換圖片 (會去抓 res/drawable 裡的圖)
         imgSlideshow.setImageResource(slide.imageResId)
-
-        // 2. 唸台詞
         robot.speak(TtsRequest.create(slide.textToSpeak, false))
     }
 
+    private fun onPlaybackFinished() {
+        stopEverything()
+        if (afterAskAndCharge) {
+            showQuestionDialog()
+        }
+    }
+
+    // 停止所有媒體，並把畫面恢復為「主選單模式」
     private fun stopEverything() {
         try { if (videoView.isPlaying) videoView.stopPlayback() } catch (_: Exception) {}
         isPlayingSlideshow = false
+        isMediaPaused = false
         robot.cancelAllTtsRequests()
 
-        // 停止時把畫面恢復全白或隱藏
-        imgSlideshow.visibility = View.GONE
+        // 切換 UI：隱藏全螢幕，顯示主選單
+        layoutFullscreen.visibility = View.GONE
         videoView.visibility = View.GONE
+        imgSlideshow.visibility = View.GONE
+        layoutMenu.visibility = View.VISIBLE
+        btnBack.visibility = View.VISIBLE
     }
 
     private fun showQuestionDialog() {
