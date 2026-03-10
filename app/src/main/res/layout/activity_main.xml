@@ -30,7 +30,7 @@
             android:layout_weight="1"
             android:layout_marginBottom="24dp"
             android:text="環境導覽"
-            android:textSize="40sp"
+            android:textSize="60sp"
             android:textStyle="bold"
             app:cornerRadius="30dp" />
 
@@ -41,7 +41,7 @@
             android:layout_weight="1"
             android:layout_marginBottom="24dp"
             android:text="政策宣傳"
-            android:textSize="40sp"
+            android:textSize="60sp"
             android:textStyle="bold"
             android:backgroundTint="#E91E63"
             app:cornerRadius="30dp" />
@@ -53,7 +53,7 @@
             android:layout_weight="1"
             android:layout_marginBottom="24dp"
             android:text="衛教宣導"
-            android:textSize="40sp"
+            android:textSize="60sp"
             android:textStyle="bold"
             android:backgroundTint="#FF9800"
             app:cornerRadius="30dp" />
@@ -65,7 +65,7 @@
             android:layout_weight="1"
             android:layout_marginBottom="24dp"
             android:text="病房導覽"
-            android:textSize="40sp"
+            android:textSize="60sp"
             android:textStyle="bold"
             android:backgroundTint="#4CAF50"
             app:cornerRadius="30dp" />

@@ -16,14 +16,15 @@
         android:padding="30dp"
         android:gravity="center">
 
+        <!-- ✅ 標題字體放大 (56sp)，並加大 marginBottom (90dp) 讓它往上移 -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="衛教影片播放中心"
-            android:textSize="40sp"
+            android:textSize="56sp"
             android:textStyle="bold"
             android:textColor="#333333"
-            android:layout_marginBottom="50dp"/>
+            android:layout_marginBottom="90dp"/>
 
         <!-- 4顆按鈕：改為 2x2 均分排列 -->
         <GridLayout
@@ -41,30 +42,9 @@
                 android:layout_margin="10dp"
                 app:cornerRadius="20dp"
                 android:text="病房須知"
-                android:textSize="36sp" />
+                android:textSize="44sp" />
 
-            <Button
-                android:id="@+id/btn_video_1"
-                android:layout_width="0dp"
-                android:layout_height="140dp"
-                android:layout_columnWeight="1"
-                android:layout_gravity="fill"
-                android:layout_margin="10dp"
-                app:cornerRadius="20dp"
-                android:text="口腔清潔"
-                android:textSize="36sp" />
-
-            <Button
-                android:id="@+id/btn_video_2"
-                android:layout_width="0dp"
-                android:layout_height="140dp"
-                android:layout_columnWeight="1"
-                android:layout_gravity="fill"
-                android:layout_margin="10dp"
-                app:cornerRadius="20dp"
-                android:text="化療常見\n管路照護"
-                android:textSize="36sp" />
-
+            <!-- ✅ 調換：手術需知移至右上角 -->
             <Button
                 android:id="@+id/btn_video_3"
                 android:layout_width="0dp"
@@ -74,7 +54,30 @@
                 android:layout_margin="10dp"
                 app:cornerRadius="20dp"
                 android:text="手術需知"
-                android:textSize="36sp" />
+                android:textSize="44sp" />
+
+            <Button
+                android:id="@+id/btn_video_2"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_columnWeight="1"
+                android:layout_gravity="fill"
+                android:layout_margin="10dp"
+                app:cornerRadius="20dp"
+                android:text="化療常見 管路照護"
+                android:textSize="44sp" />
+
+            <!-- ✅ 調換：口腔清潔移至右下角 -->
+            <Button
+                android:id="@+id/btn_video_1"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_columnWeight="1"
+                android:layout_gravity="fill"
+                android:layout_margin="10dp"
+                app:cornerRadius="20dp"
+                android:text="口腔清潔"
+                android:textSize="44sp" />
         </GridLayout>
     </LinearLayout>
 
@@ -115,7 +118,7 @@
             android:layout_gravity="center"
             android:scaleType="fitCenter" />
 
-        <!-- ✅ 獨立設定：暫停按鈕 (左下角，調整 margin 讓它更靠邊緣) -->
+        <!-- 獨立設定：暫停按鈕 (左下角) -->
         <Button
             android:id="@+id/btn_pause_resume"
             android:layout_width="160dp"
@@ -131,7 +134,7 @@
             app:cornerRadius="35dp"
             android:elevation="10dp"/>
 
-        <!-- ✅ 字幕顯示區塊 (半透明黑底白字，夾在按鈕之間) -->
+        <!-- 字幕顯示區塊 (半透明黑底白字，夾在按鈕之間) -->
         <TextView
             android:id="@+id/tv_subtitle"
             android:layout_width="match_parent"
@@ -151,7 +154,7 @@
             android:elevation="10dp"
             android:visibility="gone" />
 
-        <!-- ✅ 獨立設定：退出影片按鈕 (右下角，調整 margin 讓它更靠邊緣) -->
+        <!-- 獨立設定：退出影片按鈕 (右下角) -->
         <Button
             android:id="@+id/btn_exit_media"
             android:layout_width="160dp"
