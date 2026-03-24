@@ -22,7 +22,6 @@
             android:textStyle="bold"
             android:layout_marginBottom="40dp" />
 
-        <!-- 加上 layout_weight="1" 並把 height 設為 0dp，讓按鈕均分剩下的高度 -->
         <Button
             android:id="@+id/btn_to_navigation"
             android:layout_width="match_parent"
