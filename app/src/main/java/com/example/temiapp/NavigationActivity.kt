@@ -15,8 +15,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.robotemi.sdk.Robot
-import com.robotemi.sdk.SttLanguage
-import com.robotemi.sdk.TtsRequest
 import com.robotemi.sdk.listeners.OnGoToLocationStatusChangedListener
 import com.robotemi.sdk.listeners.OnRobotReadyListener
 
@@ -28,6 +26,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         const val EXTRA_START_VIDEO_ON_ARRIVAL = "extra_start_video_on_arrival"
         const val EXTRA_VIDEO_MODE = "extra_video_mode"
         const val EXTRA_VIDEO_KEY = "extra_video_key"
+        const val EXTRA_START_FULL_TOUR = "extra_start_full_tour"
         private const val TAG = "NavigationActivity"
     }
 
@@ -35,12 +34,14 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     private var startVideoOnArrival: Boolean = false
     private var videoMode: String = VideoActivity.MODE_HEALTH_EDU
     private var videoKey: String = ""
+    private var pendingStartFullTour: Boolean = false
 
     private var activeTarget: String? = null
     private var arrivalConsumed: Boolean = false
     private var isRobotReady: Boolean = false
 
     private lateinit var robot: Robot
+    private lateinit var speechManager: SpeechManager
     private var isTouring = false
     private var isReturningToStart = false
 
@@ -52,14 +53,9 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
 
     private val handler = Handler(Looper.getMainLooper())
 
-    // --- helpers ---
     private fun normNoSpace(s: String): String =
         s.replace(Regex("[\\s\\u3000]+"), "").lowercase()
 
-    /**
-     * 將「內部 key」（例如 826a）解析成 Map 上實際存在的點位名稱（可能是 "826 a" / "826 A"）。
-     * 這樣就算 Map 的點位中間插空白，也能正常 goTo / 回報比對。
-     */
     private fun resolveGoToName(internalKey: String): String {
         val locs = try {
             robot.locations
@@ -70,7 +66,6 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         if (locs.isEmpty()) return internalKey
         if (locs.contains(internalKey)) return internalKey
 
-        // 病房：826a -> "826 a" / "826 A" 兩種常見
         val m = Regex("^(8\\d{2})([a-z])$").find(internalKey)
         if (m != null) {
             val prefix = m.groupValues[1]
@@ -81,7 +76,6 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
             if (locs.contains(cand2)) return cand2
         }
 
-        // 保底：用去空白後比對（避免 Map 名稱含全形空白/多空白）
         val hit = locs.firstOrNull { normNoSpace(it) == normNoSpace(internalKey) }
         return hit ?: internalKey
     }
@@ -94,13 +88,18 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     private fun wardKey(name: String): String =
         name.replace(Regex("[\\s\\u3000]+"), "").lowercase()
 
-    // --- 導覽文字設定 ---
-    private val nursingStationText = "這裡是護理站和諮詢站，若您有任何醫療需求，請諮詢護理站人員；若您需要辦理出院或查詢住院費用請至諮詢站諮詢書記。"
-    private val dirtyRoomText = "這裡是污物室，請依垃圾分類標示丟棄正確物品、衣服棉被請放入藍色污衣桶、尿布請丟棄至洗手台旁尿布垃圾桶，非醫療廢棄物請至配膳室執行垃圾分類。"
-    private val pantryRoomText = "這裡是配膳室，為了愛護地球，請您依垃圾分類標示完成垃圾分類，廚餘請倒入廚餘桶；這裡也有製冰機，僅供冰敷或冰枕使用，不可以食用；而飲水機半夜會有消毒時間，取用時請注意時間。"
-    private val linenText = "這裡是被服用品車，請依標示自行拿取所需衣物、被套、枕頭套，再次提醒請不要囤積被服，若您需要更換棉被，請找護理師，若您需要吹風機請自行取用，使用完畢請歸位。"
-    private val wheelchairText = "這裡是輪椅放置處，若您需要使用輪椅時，請自行取用，使用完畢請主動歸位。"
-    private val scaleText = "這裡是身高體重計、坐磅放置處，病房每週五需測量體重，若您需使用身高體重計，請護理師協助掃描手圈條碼，若使用坐磅或站式體重計，請使用後歸位，使用坐磅時請注意輪子需固定。"
+    private val nursingStationText =
+        "這裡是護理站和諮詢站，若您有任何醫療需求，請諮詢護理站人員；若您需要辦理出院或查詢住院費用請至諮詢站諮詢書記。"
+    private val dirtyRoomText =
+        "這裡是污物室，請依垃圾分類標示丟棄正確物品、衣服棉被請放入藍色污衣桶、尿布請丟棄至洗手台旁尿布垃圾桶，非醫療廢棄物請至配膳室執行垃圾分類。"
+    private val pantryRoomText =
+        "這裡是配膳室，為了愛護地球，請您依垃圾分類標示完成垃圾分類，廚餘請倒入廚餘桶；這裡也有製冰機，僅供冰敷或冰枕使用，不可以食用；而飲水機半夜會有消毒時間，取用時請注意時間。"
+    private val linenText =
+        "這裡是被服用品車，請依標示自行拿取所需衣物、被套、枕頭套，再次提醒請不要囤積被服，若您需要更換棉被，請找護理師，若您需要吹風機請自行取用，使用完畢請歸位。"
+    private val wheelchairText =
+        "這裡是輪椅放置處，若您需要使用輪椅時，請自行取用，使用完畢請主動歸位。"
+    private val scaleText =
+        "這裡是身高體重計、坐磅放置處，病房每週五需測量體重，若您需使用身高體重計，請護理師協助掃描手圈條碼，若使用坐磅或站式體重計，請使用後歸位，使用坐磅時請注意輪子需固定。"
 
     private val goToLocationStatusListener = object : OnGoToLocationStatusChangedListener {
         override fun onGoToLocationStatusChanged(
@@ -109,7 +108,6 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
             descriptionId: Int,
             description: String
         ) {
-            // 若已停止且 overlay 未顯示，忽略完成回報
             if (!isTouring && !layoutOverlay.isShown) return
 
             if (status.equals("complete", ignoreCase = true)) {
@@ -118,33 +116,17 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         }
     }
 
-    private val asrListener = object : Robot.AsrListener {
-        override fun onAsrResult(asrResult: String, sttLanguage: SttLanguage) {
-            val text = asrResult.replace(Regex("[\\s\\u3000]+"), "")
-            val target = SpeechTargetParser.parseTargetLocation(asrResult)
-
-            runOnUiThread {
-                try {
-                    when {
-                        target != null -> startGoToLocation(target, false)
-                        text.contains("全區導覽") || text.contains("介紹環境") ->
-                            findViewById<Button>(R.id.btn_full_tour).performClick()
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-
-            try {
-                robot.finishConversation()
-            } catch (_: Exception) {
-            }
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_navigation)
+
+        val initialTarget = intent.getStringExtra(EXTRA_TARGET_LOCATION)?.trim().orEmpty()
+        val isFullTour = intent.getBooleanExtra(EXTRA_START_FULL_TOUR, false)
+        if (initialTarget.isNotEmpty() || isFullTour) {
+            AppStatus.setBusy(if (isFullTour) "全區導覽" else "準備前往 $initialTarget")
+        } else {
+            AppStatus.setIdle()
+        }
 
         startVideoOnArrival = intent.getBooleanExtra(EXTRA_START_VIDEO_ON_ARRIVAL, false)
         videoMode = intent.getStringExtra(EXTRA_VIDEO_MODE) ?: VideoActivity.MODE_HEALTH_EDU
@@ -152,6 +134,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         arrivalConsumed = false
 
         robot = Robot.getInstance()
+        speechManager = SpeechManager(this, robot)
 
         layoutOverlay = findViewById(R.id.layout_overlay)
         imgOverlay = findViewById(R.id.img_overlay_location)
@@ -177,20 +160,29 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         super.onStart()
         robot.addOnRobotReadyListener(this)
         robot.addOnGoToLocationStatusChangedListener(goToLocationStatusListener)
-        robot.addAsrListener(asrListener)
     }
 
     override fun onStop() {
-        super.onStop()
         robot.removeOnRobotReadyListener(this)
         robot.removeOnGoToLocationStatusChangedListener(goToLocationStatusListener)
-        robot.removeAsrListener(asrListener)
         forceStopEverything()
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        speechManager.shutdown()
+        AppStatus.setIdle()
+        super.onDestroy()
     }
 
     override fun onRobotReady(isReady: Boolean) {
         isRobotReady = isReady
         if (!isReady) return
+
+        if (pendingStartFullTour) {
+            startFullTour()
+            pendingStartFullTour = false
+        }
 
         pendingAutoTarget?.let { target ->
             startGoToLocation(target, false)
@@ -200,6 +192,16 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
 
     private fun handleAutoNavigationFromIntent(intent: Intent?) {
         val i = intent ?: return
+
+        if (i.getBooleanExtra(EXTRA_START_FULL_TOUR, false)) {
+            if (isRobotReady || robot.isReady) {
+                startFullTour()
+            } else {
+                pendingStartFullTour = true
+                Toast.makeText(this, "已收到指令：開始全區導覽", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
 
         val raw = i.getStringExtra(EXTRA_TARGET_LOCATION)?.trim().orEmpty()
         if (raw.isBlank()) return
@@ -214,15 +216,13 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
             startGoToLocation(target, false)
         } else {
             pendingAutoTarget = target
-            Toast.makeText(this, "已收到語音指令：$target", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "已收到指令：$target", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun normalizeTargetName(raw: String): String {
-        val trimmed = raw.trim()
-            .replace("汙物室", "污物室")
+        val trimmed = raw.trim().replace("汙物室", "污物室")
 
-        // 先處理充電座 / home base（避免空白被吃掉）
         val lowerNoSpace = trimmed
             .replace(Regex("[\\s\\u3000]+"), "")
             .lowercase()
@@ -240,7 +240,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
 
     private fun forceStopEverything() {
         robot.stopMovement()
-        robot.cancelAllTtsRequests()
+        speechManager.stop()
         handler.removeCallbacksAndMessages(null)
 
         isTouring = false
@@ -275,39 +275,55 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         btnCharge.setOnClickListener { startGoToLocation("充電座", false) }
 
         btnFullTour.setOnClickListener {
-            if (!robot.isReady) return@setOnClickListener
-            isTouring = true
-            isReturningToStart = false
-
-            showOverlayUI("開始全區導覽，前往護理站...", R.drawable.nursing_station_img)
-            robot.speak(TtsRequest.create("開始全區導覽，現在前往護理站", false))
-            robot.goTo("護理站")
+            startFullTour()
         }
 
         btnBack.setOnClickListener { finish() }
+    }
+
+    private fun startFullTour() {
+        if (!robot.isReady) return
+        AppStatus.setBusy("全區導覽")
+        isTouring = true
+        isReturningToStart = false
+        showOverlayUI("開始全區導覽，前往護理站...", R.drawable.nursing_station_img)
+        speechManager.speak("開始全區導覽，現在前往護理站")
+        robot.goTo("護理站")
     }
 
     private fun startGoToLocation(locationName: String, tourMode: Boolean) {
         handler.removeCallbacksAndMessages(null)
         if (!robot.isReady) return
 
+        val normalizedLocation = normalizeTargetName(locationName)
+
+        // 🔥 [終極攔截防呆]：如果發現有人企圖把「全區導覽」當作單一座標點，
+        // 直接攔截！強制把任務轉交給專門處理巡迴的 startFullTour()！
+        if (normalizedLocation == "全區導覽" && !tourMode) {
+            startFullTour()
+            return
+        }
+
+        if (tourMode) {
+            AppStatus.setBusy("全區導覽")
+        } else {
+            val displayName = if (normalizedLocation == "home base") "充電座" else normalizedLocation
+            AppStatus.setBusy("前往 $displayName")
+        }
+
         isTouring = tourMode
         if (!tourMode) isReturningToStart = false
 
-        // 內部一律用「去空白後」的 key（病房 => 826a）
-        val normalizedLocation = normalizeTargetName(locationName)
         activeTarget = normalizedLocation
 
-        // 實際 goTo 時，對應到 Map 內真正存在的點位名稱（可能是 "826 a"）
         val goToName = resolveGoToName(normalizedLocation)
-
         val displayName = if (normalizedLocation == "home base") "充電座" else normalizedLocation
 
         if (!tourMode) {
             showOverlayUI("正在前往：$displayName...", R.drawable.nursing_station_img)
         }
 
-        robot.speak(TtsRequest.create("現在前往$displayName", false))
+        speechManager.speak("現在前往$displayName")
         robot.goTo(goToName)
         Toast.makeText(this, "前往 $displayName", Toast.LENGTH_SHORT).show()
     }
@@ -325,31 +341,33 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         val btnNo = dialog.findViewById<Button>(R.id.btn_no)
 
         btnYes.setOnClickListener {
-            robot.speak(TtsRequest.create("請問有什麼需要幫忙的呢？", false))
+            speechManager.speak("請問有什麼需要幫忙的呢？")
             dialog.dismiss()
             currentDialog = null
-            startActivity(Intent(this, RoomActionMenuActivity::class.java).apply {
-                putExtra(RoomActionMenuActivity.EXTRA_ROOM, roomKey)
-            })
+            startActivity(
+                Intent(this, RoomActionMenuActivity::class.java).apply {
+                    putExtra(RoomActionMenuActivity.EXTRA_ROOM, roomKey)
+                }
+            )
             finish()
         }
 
         btnNo.setOnClickListener {
-            robot.speak(TtsRequest.create("好的，謝謝您，我現在回充電座。", false))
+            speechManager.speak("好的，謝謝您，我現在回充電座。")
             dialog.dismiss()
             currentDialog = null
 
             val i = Intent(this, NavigationActivity::class.java).apply {
-                putExtra(NavigationActivity.EXTRA_TARGET_LOCATION, "充電座")
-                putExtra(NavigationActivity.EXTRA_SOURCE_QUERY, "return_charge")
-                putExtra(NavigationActivity.EXTRA_START_VIDEO_ON_ARRIVAL, false)
+                putExtra(EXTRA_TARGET_LOCATION, "充電座")
+                putExtra(EXTRA_SOURCE_QUERY, "return_charge")
+                putExtra(EXTRA_START_VIDEO_ON_ARRIVAL, false)
             }
             startActivity(i)
             finish()
         }
 
         dialog.show()
-        robot.speak(TtsRequest.create("請問是否還有其他問題？", false))
+        speechManager.speak("請問是否還有其他問題？")
     }
 
     private fun handleArrivalLogic(location: String) {
@@ -364,10 +382,8 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
             return
         }
 
-        // ✅ 病房模式：抵達目標病房後直接開 VideoActivity（自動播放）
         if (startVideoOnArrival && !arrivalConsumed) {
             val target = activeTarget?.trim().orEmpty()
-            // Map 回報可能是 "826 a"，activeTarget 可能是 "826a"，所以用「去空白後」比對
             if (target.isNotEmpty() && normNoSpace(location) == normNoSpace(target)) {
                 arrivalConsumed = true
                 val i = Intent(this, VideoActivity::class.java).apply {
@@ -400,40 +416,30 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
             speakWithCallback(speakText, onActionComplete)
         } else {
             if (location == "home base" || location == "充電座") {
-                robot.speak(TtsRequest.create("很高興為您服務，我現在要充電了。"))
+                speechManager.speak("很高興為您服務，我現在要充電了。")
             } else {
-                // ✅ 抵達病房：如果不是自動播片模式，抵達後詢問是否還有問題
                 if (!isTouring && isWardLocation(location)) {
                     hideOverlayUI()
                     showWardQuestionDialog(wardKey(location))
                     return
                 }
 
-                robot.speak(TtsRequest.create("$location 到了。"))
+                speechManager.speak("$location 到了。")
             }
             if (!isTouring) hideOverlayUI()
         }
     }
 
     private fun speakWithCallback(text: String, onComplete: () -> Unit) {
-        val ttsListener = object : Robot.TtsListener {
-            override fun onTtsStatusChanged(ttsRequest: TtsRequest) {
-                if (ttsRequest.status == TtsRequest.Status.COMPLETED ||
-                    ttsRequest.status == TtsRequest.Status.ERROR
-                ) {
-                    robot.removeTtsListener(this)
-                    runOnUiThread {
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            if (isTouring || layoutOverlay.visibility == View.VISIBLE) {
-                                onComplete()
-                            }
-                        }, 500)
+        speechManager.speak(text) {
+            runOnUiThread {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    if (isTouring || layoutOverlay.visibility == View.VISIBLE) {
+                        onComplete()
                     }
-                }
+                }, 500)
             }
         }
-        robot.addTtsListener(ttsListener)
-        robot.speak(TtsRequest.create(text, false))
     }
 
     private fun checkNextMove(currentLocation: String) {
@@ -448,7 +454,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
                 }
 
                 handler.postDelayed({
-                    robot.speak(TtsRequest.create("現在前往$nextLocation", false))
+                    speechManager.speak("現在前往$nextLocation")
                     robot.goTo(nextLocation)
                 }, 2000)
             } else {
@@ -457,7 +463,9 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
             }
         } else {
             hideOverlayUI()
-            if (currentLocation == "護理站") runOnUiThread { showCustomDialog() }
+            if (currentLocation == "護理站") {
+                runOnUiThread { showCustomDialog() }
+            }
         }
     }
 
@@ -487,6 +495,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
 
     private fun showCustomDialog() {
         if (isFinishing || isDestroyed) return
+
         val dialog = Dialog(this)
         currentDialog = dialog
 
@@ -498,18 +507,18 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         val btnNo = dialog.findViewById<Button>(R.id.btn_no)
 
         btnYes.setOnClickListener {
-            robot.speak(TtsRequest.create("請問有什麼需要幫忙的呢？", false))
+            speechManager.speak("請問有什麼需要幫忙的呢？")
             dialog.dismiss()
             currentDialog = null
         }
 
         btnNo.setOnClickListener {
-            robot.speak(TtsRequest.create("好的，謝謝您", false))
+            speechManager.speak("好的，謝謝您")
             dialog.dismiss()
             currentDialog = null
         }
 
         dialog.show()
-        robot.speak(TtsRequest.create("請問是否還有其他問題？", false))
+        speechManager.speak("請問是否還有其他問題？")
     }
 }

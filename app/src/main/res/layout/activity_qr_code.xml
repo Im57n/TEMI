@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="#FFFFFF"
+    android:padding="30dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Temi 本機網路 IP"
+        android:textSize="36sp"
+        android:textColor="#333333"
+        android:textStyle="bold"
+        android:layout_marginBottom="20dp" />
+
+    <TextView
+        android:id="@+id/ipTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="正在取得網路 IP..."
+        android:textSize="56sp"
+        android:textColor="#007AFF"
+        android:textStyle="bold"
+        android:layout_marginBottom="60dp"/>
+
+    <!-- 🌟 新增：下載網址提示區域 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="⬇️ 護理機下載遙控 App，請在瀏覽器輸入 ⬇️"
+        android:textSize="28sp"
+        android:textColor="#666666"
+        android:textStyle="bold"
+        android:layout_marginBottom="20dp" />
+
+    <TextView
+        android:id="@+id/urlTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="正在產生下載網址..."
+        android:textSize="48sp"
+        android:textColor="#E91E63"
+        android:textStyle="bold"
+        android:layout_marginBottom="80dp"/>
+
+    <!-- 返回按鈕 -->
+    <Button
+        android:id="@+id/btn_back"
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"
+        android:text="返回主畫面"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:paddingVertical="15dp"
+        android:backgroundTint="#9E9E9E" />
+
+</LinearLayout>

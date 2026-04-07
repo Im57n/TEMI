@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <!-- 讓網頁在手機上全螢幕、禁止縮放 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 偽裝成 App 的關鍵標籤 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Temi 遙控">
+    <title>Temi 遠端遙控中心</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background-color: #f0f2f5;
+            margin: 0;
+        }
+        .container { max-width: 400px; margin: 0 auto; padding-top: 30px; }
+        h2 { color: #1a1a1a; margin-bottom: 30px; }
+        button {
+            width: 100%;
+            padding: 20px;
+            margin: 10px 0;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 15px;
+            border: none;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.1s, background-color 0.2s;
+            cursor: pointer;
+        }
+        button:active { transform: scale(0.98); }
+
+        /* 對應 Android 預設按鈕藍色 */
+        .btn-nav { background-color: #007AFF; }
+        .btn-nav:active { background-color: #0056b3; }
+
+        /* 對應 #E91E63 (粉紅) */
+        .btn-broadcast { background-color: #E91E63; }
+        .btn-broadcast:active { background-color: #C2185B; }
+
+        /* 對應 #FF9800 (橘色) */
+        .btn-video { background-color: #FF9800; }
+        .btn-video:active { background-color: #F57C00; }
+
+        /* 對應 #4CAF50 (綠色) */
+        .btn-ward { background-color: #4CAF50; }
+        .btn-ward:active { background-color: #388E3C; }
+
+        #status { margin-top: 20px; color: #666; font-size: 16px; font-weight: 500;}
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>🤖 Temi 遙控中心</h2>
+
+    <button class="btn-nav" onclick="sendCommand('navigation')">🗺️ 環境導覽</button>
+    <button class="btn-broadcast" onclick="sendCommand('broadcast')">📢 政策宣傳</button>
+    <button class="btn-video" onclick="sendCommand('video')">▶️ 衛教宣導</button>
+    <button class="btn-ward" onclick="sendCommand('ward_guide')">🛏️ 病房導覽</button>
+
+    <div id="status">目前狀態：等待指令...</div>
+</div>
+
+<script>
+    function sendCommand(action) {
+        const statusEl = document.getElementById('status');
+        statusEl.innerText = "傳送指令中...";
+        statusEl.style.color = "#007AFF";
+
+        // 發送請求給 Android 裡的 TemiWebServer
+        fetch('/api/command', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: action })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                statusEl.innerText = "✅ 指令已送出！Temi 正在執行。";
+                statusEl.style.color = "#34C759";
+            } else {
+                statusEl.innerText = "❌ 失敗：發生錯誤。";
+                statusEl.style.color = "#FF3B30";
+            }
+        })
+        .catch(err => {
+            statusEl.innerText = "⚠️ 連線異常！請重新掃描 QR Code。";
+            statusEl.style.color = "#FF3B30";
+            // 實機測試時可把下方 alert 打開
+            // alert('連線失敗，請重新掃描 Temi 臉上的 QR Code 更新連線。');
+        });
+    }
+</script>
+</body>
+</html>
