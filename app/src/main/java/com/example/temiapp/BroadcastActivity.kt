@@ -62,8 +62,13 @@ class BroadcastActivity : AppCompatActivity(),
 
         autoStartText = intent.getStringExtra(EXTRA_AUTO_START_TEXT)
         if (!autoStartText.isNullOrEmpty()) {
-            // 遠端啟動：先鎖定為忙碌，避免被其他指令打斷
-            AppStatus.setBusy("準備執行廣播任務...")
+            // 🌟 修正：遠端啟動先鎖定為忙碌，改用正確的 AppStatus 屬性
+            AppStatus.isBusy = true
+            AppStatus.currentTaskName = "準備執行廣播任務..."
+        } else {
+            // 🌟 確保手動開啟時為空閒
+            AppStatus.isBusy = false
+            AppStatus.currentTaskName = "空閒"
         }
 
         setupListView()
@@ -113,6 +118,7 @@ class BroadcastActivity : AppCompatActivity(),
 
     private fun normNoSpace(s: String): String =
         s.replace(Regex("[\\s\\u3000]+"), "").lowercase()
+
     private fun setupButtons() {
         findViewById<Button>(R.id.btn_start_broadcast).setOnClickListener { startBroadcast() }
 
@@ -134,8 +140,9 @@ class BroadcastActivity : AppCompatActivity(),
         }
         if (!robot.isReady) return
 
-        // 啟動任務：設為忙碌
-        AppStatus.setBusy(if (isRoomRouteBroadcast) "病房政策宣導" else "巡邏廣播")
+        // 🌟 修正：啟動任務，設為忙碌 (替換 setBusy)
+        AppStatus.isBusy = true
+        AppStatus.currentTaskName = if (isRoomRouteBroadcast) "病房政策宣導" else "巡邏廣播"
 
         isPatrolling = true
         currentRouteIndex = 0
@@ -158,6 +165,7 @@ class BroadcastActivity : AppCompatActivity(),
         val text = selectedText ?: return
         if (!isPatrolling) return
 
+        // 保留學長的高級語音管理
         speechManager.speak(text) {
             if (isPatrolling) {
                 speakLoop()
@@ -217,13 +225,17 @@ class BroadcastActivity : AppCompatActivity(),
         speechManager.stop()
         robot.stopMovement()
 
-        AppStatus.setIdle()
+        // 🌟 修正：停止時解鎖狀態 (替換 setIdle)
+        AppStatus.isBusy = false
+        AppStatus.currentTaskName = "空閒"
     }
 
     override fun onDestroy() {
         stopBroadcast()
         speechManager.shutdown()
-        AppStatus.setIdle()
+        // 🌟 修正：確保銷毀時解鎖狀態
+        AppStatus.isBusy = false
+        AppStatus.currentTaskName = "空閒"
         super.onDestroy()
     }
 }

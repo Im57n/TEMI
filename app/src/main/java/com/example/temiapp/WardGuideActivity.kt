@@ -74,7 +74,6 @@ class WardGuideActivity : AppCompatActivity() {
         prefixGrid.rowCount = ceil(prefixList.size / columns.toDouble()).toInt()
 
         val isTablet = resources.configuration.smallestScreenWidthDp >= 600
-        // ✅ [放大字體] 主畫面的病房號碼字體放大 (平板從 24f 改為 36f)
         val btnTextSize = if (isTablet) 36f else 28f
         val margin = if (isTablet) dp(6) else dp(4)
         val radius = if (isTablet) 18 else 14
@@ -133,7 +132,6 @@ class WardGuideActivity : AppCompatActivity() {
 
         val title = TextView(this).apply {
             text = "請選擇病房"
-            // ✅ [放大字體] 彈出視窗標題放大
             textSize = 44f
             setTypeface(null, Typeface.BOLD)
             setTextColor(Color.parseColor("#212121"))
@@ -145,7 +143,6 @@ class WardGuideActivity : AppCompatActivity() {
             val btn = Button(this).apply {
                 text = room
                 isAllCaps = false
-                // ✅ [放大字體] 彈出視窗內的選項按鈕字體放大
                 textSize = 38f
                 setTextColor(Color.WHITE)
                 background = roundedBg("#6750A4", 20)
@@ -159,7 +156,7 @@ class WardGuideActivity : AppCompatActivity() {
                 btn,
                 LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(100) // ✅ 按鈕高度配合字體加大 (從 88dp 增加到 100dp)
+                    dp(100)
                 ).apply { topMargin = if (idx == 0) 0 else dp(12) }
             )
         }
@@ -183,11 +180,13 @@ class WardGuideActivity : AppCompatActivity() {
 
         tvSelectedWard.text = "目前選擇：$room"
 
-        // 去下一頁（衛教/政策選單）
         val i = Intent(this, RoomActionMenuActivity::class.java).apply {
             putExtra(RoomActionMenuActivity.EXTRA_ROOM, room)
         }
         startActivity(i)
+
+        // 🌟 點擊前往下一頁後，將自己關閉，確保底層只有 MainActivity
+        finish()
     }
 
     private fun calculateColumns(): Int {

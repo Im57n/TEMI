@@ -3,57 +3,70 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
+    android:background="#FFFFFF"
     android:gravity="center"
-    android:padding="50dp"
-    android:background="#FFFFFF">
+    android:orientation="vertical"
+    android:padding="50dp">
 
-    <!-- ✅ 標題字體放大到 48sp，並加寬底部間距 -->
+    <!-- 標題 -->
     <TextView
         android:id="@+id/tv_room_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="目前病房："
-        android:textSize="48sp"
-        android:textStyle="bold"
-        android:textColor="#333333"
+        android:layout_marginBottom="40dp"
         android:gravity="center"
-        android:layout_marginBottom="50dp" />
+        android:text="目前病房："
+        android:textColor="#333333"
+        android:textSize="48sp"
+        android:textStyle="bold" />
 
-    <!-- ✅ 按鈕高度放大到 140dp，字體放大到 44sp -->
+    <!-- 🌟 新增：單純呼叫按鈕 (藍色) -->
+    <Button
+        android:id="@+id/btn_call_only"
+        android:layout_width="match_parent"
+        android:layout_height="140dp"
+        android:backgroundTint="#007AFF"
+        android:text="呼叫Temi前往"
+        android:textColor="#FFFFFF"
+        android:textSize="44sp"
+        android:textStyle="bold"
+        app:cornerRadius="35dp" />
+
     <Button
         android:id="@+id/btn_health_edu"
         android:layout_width="match_parent"
         android:layout_height="140dp"
+        android:layout_marginTop="25dp"
+        android:backgroundTint="#6750A4"
         android:text="衛教宣導"
+        android:textColor="#FFFFFF"
         android:textSize="44sp"
         android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:backgroundTint="#6750A4"
         app:cornerRadius="35dp" />
 
     <Button
         android:id="@+id/btn_policy"
         android:layout_width="match_parent"
         android:layout_height="140dp"
-        android:layout_marginTop="30dp"
+        android:layout_marginTop="25dp"
+        android:backgroundTint="#6750A4"
         android:text="政策宣導"
+        android:textColor="#FFFFFF"
         android:textSize="44sp"
         android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:backgroundTint="#6750A4"
         app:cornerRadius="35dp" />
 
+    <!-- 返回按鈕 (紅色) -->
     <Button
         android:id="@+id/btn_back"
         android:layout_width="match_parent"
         android:layout_height="140dp"
-        android:layout_marginTop="50dp"
+        android:layout_marginTop="40dp"
+        android:backgroundTint="#F44336"
         android:text="返回"
+        android:textColor="#FFFFFF"
         android:textSize="44sp"
         android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:backgroundTint="#F44336"
         app:cornerRadius="35dp" />
 
 </LinearLayout>

@@ -9,17 +9,5 @@ object AppStatus {
     var isBusy: Boolean = false
 
     // 記錄目前任務的說明，顯示在手機網頁上給護理師看
-
-    @Volatile
     var currentTaskName: String = "空閒"
-
-    fun setBusy(taskName: String) {
-        isBusy = true
-        currentTaskName = taskName
-    }
-
-    fun setIdle() {
-        isBusy = false
-        currentTaskName = "空閒"
-    }
 }

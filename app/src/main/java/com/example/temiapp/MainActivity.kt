@@ -78,6 +78,11 @@ class MainActivity : AppCompatActivity(),
             startActivity(Intent(this, BroadcastActivity::class.java))
         }
 
+        // 🌟 補回遺失的 Remote 功能：顯示本機 IP / 下載 App 的按鈕
+        findViewById<Button>(R.id.btn_show_qr).setOnClickListener {
+            startActivity(Intent(this, QrCodeActivity::class.java))
+        }
+
         // 啟動 Remote WebServer + UDP 廣播 (內網遙控)
         webServer = TemiWebServer(this.applicationContext, 8080)
         try {
@@ -101,8 +106,9 @@ class MainActivity : AppCompatActivity(),
 
     override fun onResume() {
         super.onResume()
-        // 回到首頁，保險機制：解除忙碌狀態
-        AppStatus.setIdle()
+        // 回到首頁，保險機制：解除忙碌狀態 (替換為正確安全的寫法)
+        AppStatus.isBusy = false
+        AppStatus.currentTaskName = "空閒"
     }
 
     override fun onStart() {
@@ -126,7 +132,12 @@ class MainActivity : AppCompatActivity(),
     }
 
     override fun onRobotReady(isReady: Boolean) {
-        if (isReady) robot.hideTopBar()
+        if (isReady) {
+            robot.hideTopBar()
+            // 🌟 確保就緒時不卡在忙碌狀態
+            AppStatus.isBusy = false
+            AppStatus.currentTaskName = "空閒"
+        }
     }
 
     override fun onWakeupWord(wakeupWord: String, direction: Int, wakeupOrigin: WakeupOrigin) {
@@ -147,11 +158,15 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun handleStopIntent(intent: Intent?): Boolean {
-        if (intent?.action == TemiWebServer.ACTION_STOP_TEMI) {
+        // 🌟 修正 Action 字串，確保「強制中斷行動」按鈕能精準匹配
+        if (intent?.action == "ACTION_STOP_TEMI") {
             robot.stopMovement()
             robot.cancelAllTtsRequests()
             cancelVoiceCapture()
-            AppStatus.setIdle()
+
+            AppStatus.isBusy = false
+            AppStatus.currentTaskName = "空閒"
+
             Toast.makeText(this, "🛑 已收到遠端中斷指令，停止所有動作", Toast.LENGTH_SHORT).show()
             return true
         }

@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- 🌟 補上讀取 Wi-Fi 與網路狀態的權限，才能抓到 IP -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -43,6 +47,9 @@
         <activity android:name=".VideoActivity" />
         <activity android:name=".WardGuideActivity" />
         <activity android:name=".RoomActionMenuActivity" />
+
+        <!-- 🌟 補上 QrCodeActivity 的註冊，這樣跳轉才不會閃退 -->
+        <activity android:name=".QrCodeActivity" />
     </application>
 
 </manifest>

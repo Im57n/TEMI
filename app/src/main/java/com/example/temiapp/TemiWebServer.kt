@@ -6,123 +6,90 @@ import fi.iki.elonen.NanoHTTPD
 import org.json.JSONObject
 import java.io.InputStream
 
-/**
- * Temi 內網 Web Server
- * - 提供手機端網頁 / App 下載
- * - 提供狀態查詢與遠端控制 API
- */
-class TemiWebServer(
-    private val context: Context,
-    port: Int
-) : NanoHTTPD(port) {
+class TemiWebServer(private val context: Context, port: Int) : NanoHTTPD(port) {
 
     override fun serve(session: IHTTPSession): Response {
         val uri = session.uri
         val method = session.method
 
-        // ===== CORS preflight =====
+        // 🌟 CORS 敲門磚
         if (method == Method.OPTIONS) {
             val response = newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, "")
-            addCorsHeaders(response)
+            response.addHeader("Access-Control-Allow-Origin", "*")
             response.addHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
             response.addHeader("Access-Control-Allow-Headers", "Content-Type")
             return response
         }
 
-        // ===== Web UI (assets/index.html) =====
-        if ((uri == "/" || uri == "/index.html") && method == Method.GET) {
-            return try {
-                val inputStream: InputStream = context.assets.open("index.html")
-                val response = newChunkedResponse(Response.Status.OK, "text/html; charset=UTF-8", inputStream)
-                addCorsHeaders(response)
-                response
-            } catch (e: Exception) {
-                createJsonCorsResponse(Response.Status.NOT_FOUND, """{"status":"error","message":"index.html not found in assets"}""")
-            }
-        }
-
-        // ===== 下載遙控 App (assets/temi_remote.apk) =====
+        // 🌟 下載遙控 App 的通道 (讓護理機直接從 Temi 內網下載 APK)
         if (uri == "/download" && method == Method.GET) {
             return try {
+                // 讀取 assets 資料夾中的 apk 檔案
                 val inputStream: InputStream = context.assets.open("temi_remote.apk")
-                val response = newChunkedResponse(
-                    Response.Status.OK,
-                    "application/vnd.android.package-archive",
-                    inputStream
-                )
+                val response = newChunkedResponse(Response.Status.OK, "application/vnd.android.package-archive", inputStream)
+                // 強制瀏覽器下載檔案
                 response.addHeader("Content-Disposition", "attachment; filename=\"temi_remote.apk\"")
-                addCorsHeaders(response)
                 response
             } catch (e: Exception) {
-                createJsonCorsResponse(
-                    Response.Status.NOT_FOUND,
-                    """{"status":"error","message":"temi_remote.apk not found in assets"}"""
-                )
+                newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "APK 檔案未找到，請確認已將 temi_remote.apk 放入 assets 資料夾中")
             }
         }
 
-        // ===== 狀態回報 =====
+        // 🌟 狀態回報 API (讓手機 App 隨時掌握 Temi 狀態與最新版本)
         if (uri == "/api/status" && method == Method.GET) {
             val statusJson = JSONObject().apply {
                 put("isBusy", AppStatus.isBusy)
                 put("currentTask", AppStatus.currentTaskName)
+
+                // 🌟 Temi-remote版本號 更新後要+1！
+                put("apkVersion", 3)
             }.toString()
-            return createJsonCorsResponse(Response.Status.OK, statusJson)
+            return createCorsResponse(Response.Status.OK, statusJson)
         }
 
-        // ===== 遠端控制指令 =====
+        // 處理遠端控制 API 指令
         if (uri == "/api/command" && method == Method.POST) {
-            return handleCommand(session)
-        }
+            try {
+                val map = HashMap<String, String>()
+                session.parseBody(map)
 
-        return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "404 Not Found")
-    }
+                // 修復亂碼：安全轉換 UTF-8
+                var postData = map["postData"] ?: "{}"
+                val contentType = session.headers["content-type"]?.lowercase() ?: ""
 
-    private fun handleCommand(session: IHTTPSession): Response {
-        return try {
-            val map = HashMap<String, String>()
-            session.parseBody(map)
-
-            // 修復亂碼：安全轉換 UTF-8
-            var postData = map["postData"] ?: "{}"
-            val contentType = session.headers["content-type"]?.lowercase() ?: ""
-            if (postData.isNotEmpty() && !contentType.contains("utf-8")) {
-                postData = String(postData.toByteArray(Charsets.ISO_8859_1), Charsets.UTF_8)
-            }
-
-            val json = JSONObject(postData)
-            val action = json.optString("action")
-
-            // ===== stop：強制中斷 =====
-            if (action == "stop") {
-                val stopIntent = Intent(context, MainActivity::class.java).apply {
-                    this.action = ACTION_STOP_TEMI
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                if (postData.isNotEmpty() && !contentType.contains("utf-8")) {
+                    postData = String(postData.toByteArray(Charsets.ISO_8859_1), Charsets.UTF_8)
                 }
-                context.startActivity(stopIntent)
-                AppStatus.setIdle()
-                return createJsonCorsResponse(Response.Status.OK, """{"status":"success"}""")
-            }
 
-            // ===== Busy gate =====
-            if (AppStatus.isBusy) {
-                return createJsonCorsResponse(
-                    Response.Status.OK,
-                    """{"status":"busy","message":"${escapeJson(AppStatus.currentTaskName)}"}"""
-                )
-            }
+                val json = JSONObject(postData)
+                val action = json.optString("action")
 
-            when (action) {
-                "navigation" -> {
-                    val target = json.optString("target")
-                    // 相容 assets/index.html 舊版：只有 action 沒有 target 時，僅開啟導覽頁面
-                    if (target.isBlank()) {
-                        val intent = Intent(context, NavigationActivity::class.java).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                        }
-                        context.startActivity(intent)
-                    } else {
-                        AppStatus.setBusy("前往 $target")
+                // 🌟 強制中斷指令：直接呼叫 MainActivity 的中斷行為，並解除忙碌狀態
+                if (action == "stop") {
+                    val stopIntent = Intent(context, MainActivity::class.java).apply {
+                        setAction("ACTION_STOP_TEMI")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    }
+                    context.startActivity(stopIntent)
+
+                    AppStatus.isBusy = false
+                    AppStatus.currentTaskName = "空閒"
+                    return createCorsResponse(Response.Status.OK, """{"status": "success"}""")
+                }
+
+                // ⚠️ 忙碌檢查：若 Temi 正在執行任務，拒絕新指令
+                if (AppStatus.isBusy) {
+                    return createCorsResponse(Response.Status.OK, """{"status": "busy", "message": "${AppStatus.currentTaskName}"}""")
+                }
+
+                // 一收到正常指令，立刻全域鎖定
+                AppStatus.isBusy = true
+
+                when (action) {
+                    "navigation" -> {
+                        val target = json.optString("target")
+                        AppStatus.currentTaskName = "前往 $target"
+
                         val intent = Intent(context, NavigationActivity::class.java).apply {
                             putExtra(NavigationActivity.EXTRA_TARGET_LOCATION, target)
                             putExtra(NavigationActivity.EXTRA_SOURCE_QUERY, "remote")
@@ -130,120 +97,76 @@ class TemiWebServer(
                         }
                         context.startActivity(intent)
                     }
-                }
 
-                // 相容 assets/index.html 舊版按鈕：只開啟頁面
-                "broadcast" -> {
-                    val intent = Intent(context, BroadcastActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    }
-                    context.startActivity(intent)
-                }
-
-                "video" -> {
-                    val intent = Intent(context, VideoActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    }
-                    context.startActivity(intent)
-                }
-
-                "ward_guide" -> {
-                    val intent = Intent(context, WardGuideActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    }
-                    context.startActivity(intent)
-                }
-
-                "full_tour" -> {
-                    AppStatus.setBusy("全區導覽")
-                    val intent = Intent(context, NavigationActivity::class.java).apply {
-                        putExtra(NavigationActivity.EXTRA_START_FULL_TOUR, true)
-                        putExtra(NavigationActivity.EXTRA_SOURCE_QUERY, "remote")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    }
-                    context.startActivity(intent)
-                }
-
-                "broadcast_patrol" -> {
-                    val topic = json.optString("topic")
-                    AppStatus.setBusy("全區巡邏廣播")
-                    val intent = Intent(context, BroadcastActivity::class.java).apply {
-                        putExtra(BroadcastActivity.EXTRA_AUTO_START_TEXT, topic)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    }
-                    context.startActivity(intent)
-                }
-
-                "video_local" -> {
-                    val key = json.optString("key")
-                    AppStatus.setBusy("原地衛教宣導")
-                    val intent = Intent(context, VideoActivity::class.java).apply {
-                        putExtra(VideoActivity.EXTRA_AUTOPLAY_KEY, key)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    }
-                    context.startActivity(intent)
-                }
-
-                "ward_task" -> {
-                    val room = json.optString("room")
-                    val task = json.optString("task")
-                    val content = json.optString("content")
-                    AppStatus.setBusy("前往 $room 執行 $task")
-
-                    val intent = if (task == "video") {
-                        Intent(context, NavigationActivity::class.java).apply {
-                            putExtra(NavigationActivity.EXTRA_TARGET_LOCATION, room)
-                            putExtra(NavigationActivity.EXTRA_SOURCE_QUERY, "remote")
-                            putExtra(NavigationActivity.EXTRA_START_VIDEO_ON_ARRIVAL, true)
-                            putExtra(NavigationActivity.EXTRA_VIDEO_KEY, content)
+                    "full_tour" -> {
+                        AppStatus.currentTaskName = "全區導覽"
+                        val intent = Intent(context, NavigationActivity::class.java).apply {
+                            putExtra("extra_is_full_tour", true)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                         }
-                    } else {
-                        Intent(context, BroadcastActivity::class.java).apply {
-                            putExtra(BroadcastActivity.EXTRA_TARGET_ROOM, room)
-                            putExtra(BroadcastActivity.EXTRA_AUTO_START_TEXT, content)
-                        }
+                        context.startActivity(intent)
                     }
 
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    context.startActivity(intent)
+                    "broadcast_patrol" -> {
+                        val topic = json.optString("topic")
+                        AppStatus.currentTaskName = "全區巡邏廣播"
+
+                        val intent = Intent(context, BroadcastActivity::class.java).apply {
+                            putExtra("extra_auto_start_text", topic)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        }
+                        context.startActivity(intent)
+                    }
+
+                    "video_local" -> {
+                        val key = json.optString("key")
+                        AppStatus.currentTaskName = "原地衛教宣導"
+
+                        val intent = Intent(context, VideoActivity::class.java).apply {
+                            putExtra(VideoActivity.EXTRA_AUTOPLAY_KEY, key)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        }
+                        context.startActivity(intent)
+                    }
+
+                    "ward_task" -> {
+                        val room = json.optString("room")
+                        val task = json.optString("task")
+                        val content = json.optString("content")
+                        AppStatus.currentTaskName = "前往 $room 執行 $task"
+
+                        val intent = if (task == "video") {
+                            Intent(context, NavigationActivity::class.java).apply {
+                                putExtra(NavigationActivity.EXTRA_TARGET_LOCATION, room)
+                                putExtra(NavigationActivity.EXTRA_START_VIDEO_ON_ARRIVAL, true)
+                                putExtra(NavigationActivity.EXTRA_VIDEO_KEY, content)
+                            }
+                        } else {
+                            Intent(context, BroadcastActivity::class.java).apply {
+                                putExtra(BroadcastActivity.EXTRA_TARGET_ROOM, room)
+                                putExtra("extra_auto_start_text", content)
+                            }
+                        }
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        context.startActivity(intent)
+                    }
                 }
 
-                else -> {
-                    AppStatus.setIdle()
-                    return createJsonCorsResponse(
-                        Response.Status.BAD_REQUEST,
-                        """{"status":"error","message":"unknown action"}"""
-                    )
-                }
+                return createCorsResponse(Response.Status.OK, """{"status": "success"}""")
+
+            } catch (e: Exception) {
+                AppStatus.isBusy = false
+                AppStatus.currentTaskName = "空閒"
+                return createCorsResponse(Response.Status.INTERNAL_ERROR, """{"status": "error"}""")
             }
-
-            createJsonCorsResponse(Response.Status.OK, """{"status":"success"}""")
-
-        } catch (e: Exception) {
-            AppStatus.setIdle()
-            createJsonCorsResponse(Response.Status.INTERNAL_ERROR, """{"status":"error"}""")
         }
+
+        return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "404 Not Found")
     }
 
-    private fun createJsonCorsResponse(status: Response.IStatus, jsonBody: String): Response {
+    private fun createCorsResponse(status: Response.IStatus, jsonBody: String): Response {
         val response = newFixedLengthResponse(status, "application/json; charset=UTF-8", jsonBody)
-        addCorsHeaders(response)
-        return response
-    }
-
-    private fun addCorsHeaders(response: Response) {
         response.addHeader("Access-Control-Allow-Origin", "*")
-    }
-
-    private fun escapeJson(input: String): String {
-        return input
-            .replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\n", "\\n")
-            .replace("\r", "\\r")
-    }
-
-    companion object {
-        const val ACTION_STOP_TEMI = "ACTION_STOP_TEMI"
+        return response
     }
 }

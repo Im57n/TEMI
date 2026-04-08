@@ -46,4 +46,5 @@ dependencies {
     implementation("com.belerweb:pinyin4j:2.5.1")
     implementation("com.robotemi:sdk:1.136.0")
     implementation("org.nanohttpd:nanohttpd:2.3.1")
+    implementation("com.google.zxing:core:3.4.1")
 }

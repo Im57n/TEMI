@@ -26,7 +26,8 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         const val EXTRA_START_VIDEO_ON_ARRIVAL = "extra_start_video_on_arrival"
         const val EXTRA_VIDEO_MODE = "extra_video_mode"
         const val EXTRA_VIDEO_KEY = "extra_video_key"
-        const val EXTRA_START_FULL_TOUR = "extra_start_full_tour"
+        // 🌟 修正：為了能接收到 TemiWebServer 傳來的指令，改為 "extra_is_full_tour"
+        const val EXTRA_START_FULL_TOUR = "extra_is_full_tour"
         private const val TAG = "NavigationActivity"
     }
 
@@ -122,10 +123,14 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
 
         val initialTarget = intent.getStringExtra(EXTRA_TARGET_LOCATION)?.trim().orEmpty()
         val isFullTour = intent.getBooleanExtra(EXTRA_START_FULL_TOUR, false)
+
+        // 🌟 修正：替換回原本正確的狀態管理寫法 (因為沒有 setBusy / setIdle 函式)
         if (initialTarget.isNotEmpty() || isFullTour) {
-            AppStatus.setBusy(if (isFullTour) "全區導覽" else "準備前往 $initialTarget")
+            AppStatus.isBusy = true
+            AppStatus.currentTaskName = if (isFullTour) "全區導覽" else "準備前往 $initialTarget"
         } else {
-            AppStatus.setIdle()
+            AppStatus.isBusy = false
+            AppStatus.currentTaskName = "空閒"
         }
 
         startVideoOnArrival = intent.getBooleanExtra(EXTRA_START_VIDEO_ON_ARRIVAL, false)
@@ -171,7 +176,8 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
 
     override fun onDestroy() {
         speechManager.shutdown()
-        AppStatus.setIdle()
+        AppStatus.isBusy = false
+        AppStatus.currentTaskName = "空閒"
         super.onDestroy()
     }
 
@@ -283,7 +289,10 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
 
     private fun startFullTour() {
         if (!robot.isReady) return
-        AppStatus.setBusy("全區導覽")
+
+        AppStatus.isBusy = true
+        AppStatus.currentTaskName = "全區導覽"
+
         isTouring = true
         isReturningToStart = false
         showOverlayUI("開始全區導覽，前往護理站...", R.drawable.nursing_station_img)
@@ -297,18 +306,19 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
 
         val normalizedLocation = normalizeTargetName(locationName)
 
-        // 🔥 [終極攔截防呆]：如果發現有人企圖把「全區導覽」當作單一座標點，
-        // 直接攔截！強制把任務轉交給專門處理巡迴的 startFullTour()！
+        // 🔥 [終極攔截防呆] (保留學長邏輯)
         if (normalizedLocation == "全區導覽" && !tourMode) {
             startFullTour()
             return
         }
 
         if (tourMode) {
-            AppStatus.setBusy("全區導覽")
+            AppStatus.isBusy = true
+            AppStatus.currentTaskName = "全區導覽"
         } else {
             val displayName = if (normalizedLocation == "home base") "充電座" else normalizedLocation
-            AppStatus.setBusy("前往 $displayName")
+            AppStatus.isBusy = true
+            AppStatus.currentTaskName = "前往 $displayName"
         }
 
         isTouring = tourMode
@@ -330,6 +340,10 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
 
     private fun showWardQuestionDialog(roomKey: String) {
         if (isFinishing || isDestroyed) return
+
+        // 🌟 補上：彈出詢問對話框時，狀態應設為忙碌
+        AppStatus.isBusy = true
+        AppStatus.currentTaskName = "正在詢問病患需求"
 
         val dialog = Dialog(this)
         currentDialog = dialog
@@ -413,6 +427,9 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         if (locationData != null) {
             val (speakText, imageResId) = locationData
             showOverlayUI(speakText, imageResId)
+            // 🌟 補上：地點介紹時，狀態應設為忙碌
+            AppStatus.isBusy = true
+            AppStatus.currentTaskName = "正在執行地點介紹"
             speakWithCallback(speakText, onActionComplete)
         } else {
             if (location == "home base" || location == "充電座") {
@@ -431,6 +448,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     }
 
     private fun speakWithCallback(text: String, onComplete: () -> Unit) {
+        // (保留學長的高級語音管理邏輯)
         speechManager.speak(text) {
             runOnUiThread {
                 Handler(Looper.getMainLooper()).postDelayed({
@@ -486,15 +504,26 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
             txtSubtitle.text = subtitle
             imgOverlay.setImageResource(imageResId)
             layoutOverlay.visibility = View.VISIBLE
+            // 只要 Overlay 在畫面上，就維持忙碌狀態
+            AppStatus.isBusy = true
         }
     }
 
     private fun hideOverlayUI() {
-        runOnUiThread { layoutOverlay.visibility = View.GONE }
+        runOnUiThread {
+            layoutOverlay.visibility = View.GONE
+            // 畫面收起，解鎖狀態
+            AppStatus.isBusy = false
+            AppStatus.currentTaskName = "空閒"
+        }
     }
 
     private fun showCustomDialog() {
         if (isFinishing || isDestroyed) return
+
+        // 🌟 補上：自訂問題對話框，狀態應設為忙碌
+        AppStatus.isBusy = true
+        AppStatus.currentTaskName = "正在詢問病患需求"
 
         val dialog = Dialog(this)
         currentDialog = dialog
@@ -510,12 +539,14 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
             speechManager.speak("請問有什麼需要幫忙的呢？")
             dialog.dismiss()
             currentDialog = null
+            hideOverlayUI() // 呼叫隱藏 UI 會自動解鎖狀態
         }
 
         btnNo.setOnClickListener {
             speechManager.speak("好的，謝謝您")
             dialog.dismiss()
             currentDialog = null
+            finish()
         }
 
         dialog.show()

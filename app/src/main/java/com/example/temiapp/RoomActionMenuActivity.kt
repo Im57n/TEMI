@@ -6,13 +6,6 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 
-/**
- * 病房動作選單：
- * 病床選好後先停在這頁，讓使用者先決定要「衛教宣導」或「政策宣導」。
- *
- * ✅ 衛教宣導：先進 VideoActivity 選影片；選完影片才去病房，抵達後自動播放。
- * ✅ 政策宣導：進 BroadcastActivity，並帶入目標病房。
- */
 class RoomActionMenuActivity : AppCompatActivity() {
 
     companion object {
@@ -26,6 +19,15 @@ class RoomActionMenuActivity : AppCompatActivity() {
         val room = intent.getStringExtra(EXTRA_ROOM).orEmpty()
         findViewById<TextView>(R.id.tv_room_title).text = "目前病房：$room"
 
+        findViewById<Button>(R.id.btn_call_only).setOnClickListener {
+            val i = Intent(this, NavigationActivity::class.java).apply {
+                putExtra(NavigationActivity.EXTRA_TARGET_LOCATION, room)
+                putExtra(NavigationActivity.EXTRA_SOURCE_QUERY, "call_only")
+            }
+            startActivity(i)
+            finish() // 🌟 點擊後把自己關掉，確保任務結束後直接落在主畫面
+        }
+
         findViewById<Button>(R.id.btn_health_edu).setOnClickListener {
             val i = Intent(this, VideoActivity::class.java).apply {
                 putExtra(VideoActivity.EXTRA_MODE, VideoActivity.MODE_HEALTH_EDU)
@@ -33,6 +35,7 @@ class RoomActionMenuActivity : AppCompatActivity() {
                 putExtra(VideoActivity.EXTRA_AFTER_ASK_AND_CHARGE, true)
             }
             startActivity(i)
+            finish() // 🌟 點擊後把自己關掉，確保任務結束後直接落在主畫面
         }
 
         findViewById<Button>(R.id.btn_policy).setOnClickListener {
@@ -40,6 +43,7 @@ class RoomActionMenuActivity : AppCompatActivity() {
                 putExtra(BroadcastActivity.EXTRA_TARGET_ROOM, room)
             }
             startActivity(i)
+            finish() // 🌟 點擊後把自己關掉，確保任務結束後直接落在主畫面
         }
 
         findViewById<Button>(R.id.btn_back).setOnClickListener {

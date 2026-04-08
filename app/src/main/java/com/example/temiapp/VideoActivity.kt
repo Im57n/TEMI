@@ -77,6 +77,15 @@ class VideoActivity : AppCompatActivity() {
         autoplayKey = intent.getStringExtra(EXTRA_AUTOPLAY_KEY).orEmpty().trim()
         afterAskAndCharge = intent.getBooleanExtra(EXTRA_AFTER_ASK_AND_CHARGE, false)
 
+        // 🌟 修正：遙控防呆機制，若遠端觸發會帶有 autoplayKey，須立刻鎖定狀態
+        if (autoplayKey.isNotEmpty()) {
+            AppStatus.isBusy = true
+            AppStatus.currentTaskName = "準備播放衛教影片..."
+        } else {
+            AppStatus.isBusy = false
+            AppStatus.currentTaskName = "空閒"
+        }
+
         layoutMenu = findViewById(R.id.layout_menu)
         layoutFullscreen = findViewById(R.id.layout_fullscreen_media)
         btnBack = findViewById(R.id.btn_back)
@@ -95,7 +104,14 @@ class VideoActivity : AppCompatActivity() {
 
         btnBack.setOnClickListener { finish() }
         videoView.setOnCompletionListener { onPlaybackFinished() }
-        btnExitMedia.setOnClickListener { stopEverything() }
+
+        btnExitMedia.setOnClickListener {
+            stopEverything()
+            // 若設定播放後詢問，退出時也呼叫
+            if (afterAskAndCharge) {
+                showQuestionDialog()
+            }
+        }
 
         btnPauseResume.setOnClickListener {
             if (isMediaPaused) {
@@ -129,7 +145,9 @@ class VideoActivity : AppCompatActivity() {
     override fun onDestroy() {
         stopEverything()
         speechManager.shutdown()
-        AppStatus.setIdle()
+        // 🌟 修正：確保銷毀時解鎖狀態 (替換 setIdle)
+        AppStatus.isBusy = false
+        AppStatus.currentTaskName = "空閒"
         super.onDestroy()
     }
 
@@ -150,7 +168,10 @@ class VideoActivity : AppCompatActivity() {
     }
 
     private fun playByKey(key: String) {
-        AppStatus.setBusy("衛教宣導")
+        // 🌟 修正：開始播放，狀態設為忙碌 (替換 setBusy)
+        AppStatus.isBusy = true
+        AppStatus.currentTaskName = "正在播放衛教宣導"
+
         layoutMenu.visibility = View.GONE
         btnBack.visibility = View.GONE
         layoutFullscreen.visibility = View.VISIBLE
@@ -206,6 +227,7 @@ class VideoActivity : AppCompatActivity() {
         imgSlideshow.setImageResource(slide.imageResId)
         tvSubtitle.text = slide.textToSpeak
 
+        // 保留學長的高級語音管理
         speechManager.speak(slide.textToSpeak) {
             if (!isPlayingSlideshow || isMediaPaused) return@speak
 
@@ -243,12 +265,17 @@ class VideoActivity : AppCompatActivity() {
         layoutMenu.visibility = View.VISIBLE
         btnBack.visibility = View.VISIBLE
 
-        // 回到影片選單畫面時視為閒置（避免 remote 一直被鎖）
-        AppStatus.setIdle()
+        // 🌟 修正：回到影片選單畫面時視為閒置，解鎖狀態 (替換 setIdle)
+        AppStatus.isBusy = false
+        AppStatus.currentTaskName = "空閒"
     }
 
     private fun showQuestionDialog() {
         if (isFinishing || isDestroyed) return
+
+        // 🌟 修正：彈出對話框時設為忙碌，防止護理長誤點打斷
+        AppStatus.isBusy = true
+        AppStatus.currentTaskName = "正在詢問病患需求"
 
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -261,6 +288,11 @@ class VideoActivity : AppCompatActivity() {
         btnYes.setOnClickListener {
             speechManager.speak("請問有什麼需要幫忙的呢？")
             dialog.dismiss()
+
+            // 🌟 點擊後跳轉或關閉，解鎖狀態
+            AppStatus.isBusy = false
+            AppStatus.currentTaskName = "空閒"
+
             if (room.isNotEmpty()) {
                 startActivity(Intent(this, RoomActionMenuActivity::class.java).apply {
                     putExtra(RoomActionMenuActivity.EXTRA_ROOM, room)
