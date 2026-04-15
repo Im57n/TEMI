@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity(),
 
     private lateinit var robot: Robot
     private lateinit var recorder: AudioRecorderHelper
+    private lateinit var speechManager: SpeechManager
     private val asrClient = HospitalAsrClient()
     private val ioExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -52,6 +53,7 @@ class MainActivity : AppCompatActivity(),
 
         robot = Robot.getInstance()
         recorder = AudioRecorderHelper(this)
+        speechManager = SpeechManager(this, robot)
 
         voiceOverlay = findViewById(R.id.voice_overlay)
         tvVoiceStatus = findViewById(R.id.tv_voice_status)
@@ -128,6 +130,8 @@ class MainActivity : AppCompatActivity(),
         webServer?.stop()
         udpBroadcaster?.stop()
         ioExecutor.shutdownNow()
+        speechManager.shutdown()
+        MovementAudioManager.onWakeInteractionEnd(this)
         super.onDestroy()
     }
 
@@ -142,8 +146,11 @@ class MainActivity : AppCompatActivity(),
 
     override fun onWakeupWord(wakeupWord: String, direction: Int, wakeupOrigin: WakeupOrigin) {
         Log.d(TAG, "onWakeupWord: wakeupWord=$wakeupWord, direction=$direction, origin=$wakeupOrigin")
+        MovementAudioManager.onWakeInteractionStart()
         if (checkIfBusy()) {
-            robot.speak(com.robotemi.sdk.TtsRequest.create("我正在忙碌中，請稍後再叫我喔！", false))
+            speechManager.speak("我正在忙碌中，請稍後再叫我喔！") {
+                MovementAudioManager.onWakeInteractionEnd(this)
+            }
             return
         }
         startHospitalAsrFlow()
@@ -188,6 +195,7 @@ class MainActivity : AppCompatActivity(),
             showVoiceUi("等待錄音權限")
             hideVoiceUiDelayed(1500L)
             Toast.makeText(this, "請先允許錄音權限", Toast.LENGTH_SHORT).show()
+            MovementAudioManager.onWakeInteractionEnd(this)
             return
         }
 
@@ -207,6 +215,7 @@ class MainActivity : AppCompatActivity(),
             showVoiceUi("無法開始錄音")
             hideVoiceUiDelayed(2000L)
             Toast.makeText(this, "無法開始錄音：${e.message}", Toast.LENGTH_LONG).show()
+            MovementAudioManager.onWakeInteractionEnd(this)
         }
     }
 
@@ -219,6 +228,7 @@ class MainActivity : AppCompatActivity(),
             hideVoiceUiDelayed(2000L)
             Toast.makeText(this, "沒有收錄到聲音，請再說一次", Toast.LENGTH_SHORT).show()
             runCatching { audioFile?.delete() }
+            MovementAudioManager.onWakeInteractionEnd(this)
             return
         }
 
@@ -239,6 +249,7 @@ class MainActivity : AppCompatActivity(),
                     showVoiceUi("ASR 失敗")
                     hideVoiceUiDelayed(2500L)
                     Toast.makeText(this, "ASR 失敗：${e.message}", Toast.LENGTH_LONG).show()
+                    MovementAudioManager.onWakeInteractionEnd(this)
                 }
             } finally {
                 runCatching { audioFile.delete() }
@@ -253,6 +264,7 @@ class MainActivity : AppCompatActivity(),
             showVoiceUi("沒有辨識到語音內容")
             hideVoiceUiDelayed(2000L)
             Toast.makeText(this, "沒有辨識到語音內容", Toast.LENGTH_SHORT).show()
+            MovementAudioManager.onWakeInteractionEnd(this)
             return
         }
 
@@ -262,12 +274,14 @@ class MainActivity : AppCompatActivity(),
         if (target == null) {
             hideVoiceUiDelayed(3000L)
             Toast.makeText(this, "辨識結果：$spoken", Toast.LENGTH_LONG).show()
+            MovementAudioManager.onWakeInteractionEnd(this)
             return
         }
 
         pendingNavigateRunnable?.let { mainHandler.removeCallbacks(it) }
         pendingNavigateRunnable = Runnable {
             hideVoiceUi()
+            MovementAudioManager.onWakeInteractionEnd(this)
             startActivity(
                 Intent(this, NavigationActivity::class.java).apply {
                     putExtra(NavigationActivity.EXTRA_TARGET_LOCATION, target)
@@ -295,6 +309,7 @@ class MainActivity : AppCompatActivity(),
         recorder.cancelRecording()
         isCapturingVoiceCommand = false
         hideVoiceUi()
+        MovementAudioManager.onWakeInteractionEnd(this)
     }
 
     private fun showVoiceUi(status: String, transcript: String = "") {
@@ -339,6 +354,7 @@ class MainActivity : AppCompatActivity(),
                 showVoiceUi("未授權錄音")
                 hideVoiceUiDelayed(2000L)
                 Toast.makeText(this, "未授權錄音，無法使用 hey temi 語音導覽", Toast.LENGTH_LONG).show()
+                MovementAudioManager.onWakeInteractionEnd(this)
             }
         }
     }

@@ -85,6 +85,7 @@ class BroadcastActivity : AppCompatActivity(),
         robot.removeOnRobotReadyListener(this)
         robot.removeOnGoToLocationStatusChangedListener(this)
         speechManager.stop()
+        MovementAudioManager.stopAndReset()
         super.onStop()
     }
 
@@ -150,6 +151,7 @@ class BroadcastActivity : AppCompatActivity(),
         if (isRoomRouteBroadcast) {
             val goToTarget = normalizeRoomTarget(targetRoom)
             robot.goTo(goToTarget)
+            MovementAudioManager.onMovementStarted(this)
             Toast.makeText(this, "開始政策宣導，前往：$goToTarget（途中持續播報）", Toast.LENGTH_SHORT).show()
             speakLoop()
             return
@@ -157,6 +159,7 @@ class BroadcastActivity : AppCompatActivity(),
 
         val firstLocation = patrolRoute[0]
         robot.goTo(firstLocation)
+        MovementAudioManager.onMovementStarted(this)
         Toast.makeText(this, "開始巡邏廣播，前往：$firstLocation", Toast.LENGTH_SHORT).show()
         speakLoop()
     }
@@ -181,6 +184,10 @@ class BroadcastActivity : AppCompatActivity(),
     ) {
         if (!isPatrolling) return
 
+        if (status.equals("complete", ignoreCase = true) || status.equals("abort", ignoreCase = true)) {
+            MovementAudioManager.onMovementStopped()
+        }
+
         if (isRoomRouteBroadcast) {
             if (status.equals("complete", ignoreCase = true) &&
                 normNoSpace(location) == normNoSpace(targetRoom)
@@ -203,6 +210,7 @@ class BroadcastActivity : AppCompatActivity(),
                 val nextLocation = patrolRoute[currentRouteIndex]
                 Toast.makeText(this, "抵達 $location，轉往：$nextLocation", Toast.LENGTH_SHORT).show()
                 robot.goTo(nextLocation)
+                MovementAudioManager.onMovementStarted(this)
             } else {
                 Toast.makeText(this, "巡邏結束，已回到護理站！", Toast.LENGTH_LONG).show()
                 stopBroadcast()
@@ -224,6 +232,7 @@ class BroadcastActivity : AppCompatActivity(),
         currentRouteIndex = 0
         speechManager.stop()
         robot.stopMovement()
+        MovementAudioManager.stopAndReset()
 
         // 🌟 修正：停止時解鎖狀態 (替換 setIdle)
         AppStatus.isBusy = false

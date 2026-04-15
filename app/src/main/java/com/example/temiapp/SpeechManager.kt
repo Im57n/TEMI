@@ -1,6 +1,7 @@
 package com.example.temiapp
 
 import android.content.Context
+import android.media.MediaPlayer
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -22,6 +23,7 @@ class SpeechManager(
     private val mainHandler = Handler(Looper.getMainLooper())
     private val callbacks = ConcurrentHashMap<String, () -> Unit>()
 
+    private var mediaPlayer: MediaPlayer? = null
     private var tts: TextToSpeech? = null
     private var ttsInitFinished = false
     private var localTtsReady = false
@@ -56,6 +58,7 @@ class SpeechManager(
                 override fun onStart(utteranceId: String?) = Unit
 
                 override fun onDone(utteranceId: String?) {
+                    MovementAudioManager.onSpeechEnd(appContext)
                     utteranceId?.let { id ->
                         callbacks.remove(id)?.let { callback ->
                             mainHandler.post(callback)
@@ -65,6 +68,7 @@ class SpeechManager(
 
                 @Deprecated("Deprecated in Java")
                 override fun onError(utteranceId: String?) {
+                    MovementAudioManager.onSpeechEnd(appContext)
                     utteranceId?.let { id ->
                         callbacks.remove(id)?.let { callback ->
                             mainHandler.post(callback)
@@ -86,7 +90,15 @@ class SpeechManager(
             return
         }
 
+        stopPlaybackOnly()
         clearTemiListener()
+        MovementAudioManager.onSpeechStart()
+
+        val recordedResId = RecordedSpeechCatalog.findResId(appContext, safeText)
+        if (recordedResId != null) {
+            playRecordedAudio(recordedResId, onComplete)
+            return
+        }
 
         if (!ttsInitFinished) {
             pendingSpeak = PendingSpeak(safeText, onComplete)
@@ -121,9 +133,11 @@ class SpeechManager(
     fun stop() {
         pendingSpeak = null
         callbacks.clear()
+        stopPlaybackOnly()
         runCatching { tts?.stop() }
         clearTemiListener()
         runCatching { robot?.cancelAllTtsRequests() }
+        MovementAudioManager.onSpeechEnd(appContext)
     }
 
     fun shutdown() {
@@ -136,27 +150,59 @@ class SpeechManager(
         val temiRobot = if (AppRuntimeConfig.ENABLE_TEMI_TTS_FALLBACK) robot else null
 
         if (temiRobot != null) {
-            if (onComplete != null) {
-                val listener = object : Robot.TtsListener {
-                    override fun onTtsStatusChanged(ttsRequest: TtsRequest) {
-                        if (ttsRequest.status == TtsRequest.Status.COMPLETED ||
-                            ttsRequest.status == TtsRequest.Status.ERROR
-                        ) {
-                            runCatching { temiRobot.removeTtsListener(this) }
-                            temiListener = null
-                            mainHandler.post(onComplete)
-                        }
+            val listener = object : Robot.TtsListener {
+                override fun onTtsStatusChanged(ttsRequest: TtsRequest) {
+                    if (ttsRequest.status == TtsRequest.Status.COMPLETED ||
+                        ttsRequest.status == TtsRequest.Status.ERROR
+                    ) {
+                        runCatching { temiRobot.removeTtsListener(this) }
+                        temiListener = null
+                        MovementAudioManager.onSpeechEnd(appContext)
+                        onComplete?.let { mainHandler.post(it) }
                     }
                 }
-                temiListener = listener
-                runCatching { temiRobot.addTtsListener(listener) }
             }
+            temiListener = listener
+            runCatching { temiRobot.addTtsListener(listener) }
             temiRobot.speak(TtsRequest.create(text, false))
             return
         }
 
         Log.w(TAG, "沒有可用的 TTS，引導改用文字顯示：$text")
+        MovementAudioManager.onSpeechEnd(appContext)
         onComplete?.let { mainHandler.postDelayed(it, 300) }
+    }
+
+
+    private fun playRecordedAudio(resId: Int, onComplete: (() -> Unit)?) {
+        val mp = MediaPlayer.create(appContext, resId)
+        if (mp == null) {
+            MovementAudioManager.onSpeechEnd(appContext)
+            onComplete?.let { mainHandler.post(it) }
+            return
+        }
+
+        mediaPlayer = mp
+        mp.setOnCompletionListener {
+            stopPlaybackOnly()
+            MovementAudioManager.onSpeechEnd(appContext)
+            onComplete?.let { mainHandler.post(it) }
+        }
+        mp.setOnErrorListener { _, _, _ ->
+            stopPlaybackOnly()
+            MovementAudioManager.onSpeechEnd(appContext)
+            onComplete?.let { mainHandler.post(it) }
+            true
+        }
+        mp.start()
+    }
+
+    private fun stopPlaybackOnly() {
+        mediaPlayer?.let { player ->
+            runCatching { if (player.isPlaying) player.stop() }
+            runCatching { player.release() }
+        }
+        mediaPlayer = null
     }
 
     private fun clearTemiListener() {

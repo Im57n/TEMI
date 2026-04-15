@@ -180,12 +180,11 @@ class WardGuideActivity : AppCompatActivity() {
 
         tvSelectedWard.text = "目前選擇：$room"
 
-        val i = Intent(this, RoomActionMenuActivity::class.java).apply {
-            putExtra(RoomActionMenuActivity.EXTRA_ROOM, room)
+        val i = Intent(this, NavigationActivity::class.java).apply {
+            putExtra(NavigationActivity.EXTRA_TARGET_LOCATION, room)
+            putExtra(NavigationActivity.EXTRA_SOURCE_QUERY, "call_only")
         }
         startActivity(i)
-
-        // 🌟 點擊前往下一頁後，將自己關閉，確保底層只有 MainActivity
         finish()
     }
 

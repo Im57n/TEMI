@@ -26,7 +26,6 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         const val EXTRA_START_VIDEO_ON_ARRIVAL = "extra_start_video_on_arrival"
         const val EXTRA_VIDEO_MODE = "extra_video_mode"
         const val EXTRA_VIDEO_KEY = "extra_video_key"
-        // 🌟 修正：為了能接收到 TemiWebServer 傳來的指令，改為 "extra_is_full_tour"
         const val EXTRA_START_FULL_TOUR = "extra_is_full_tour"
         private const val TAG = "NavigationActivity"
     }
@@ -36,6 +35,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     private var videoMode: String = VideoActivity.MODE_HEALTH_EDU
     private var videoKey: String = ""
     private var pendingStartFullTour: Boolean = false
+    private var sourceQuery: String = ""
 
     private var activeTarget: String? = null
     private var arrivalConsumed: Boolean = false
@@ -89,10 +89,28 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     private fun wardKey(name: String): String =
         name.replace(Regex("[\\s\\u3000]+"), "").lowercase()
 
+    private fun isCallOnlyWardArrival(location: String): Boolean {
+        if (sourceQuery != "call_only") return false
+        if (isTouring) return false
+
+        val target = activeTarget?.trim().orEmpty()
+        if (target.isEmpty()) return false
+
+        return isWardLocation(location) && normNoSpace(location) == normNoSpace(target)
+    }
+
     private val nursingStationText =
         "這裡是護理站和諮詢站，若您有任何醫療需求，請諮詢護理站人員；若您需要辦理出院或查詢住院費用請至諮詢站諮詢書記。"
-    private val dirtyRoomText =
-        "這裡是污物室，請依垃圾分類標示丟棄正確物品、衣服棉被請放入藍色污衣桶、尿布請丟棄至洗手台旁尿布垃圾桶，非醫療廢棄物請至配膳室執行垃圾分類。"
+
+    private val dirtyRoomTextPart1 =
+        "這裡是污物室，請依垃圾分類標示丟棄正確物品。"
+
+    private val dirtyRoomTextPart2 =
+        "但衣服棉被請先腳踩踏板汙衣桶蓋自動打開後，再放入藍色污衣桶、尿布請丟棄至洗手台旁尿布垃圾桶，非醫療廢棄物請至配膳室執行垃圾分類。"
+
+    private val dirtyRoomTextFull =
+        dirtyRoomTextPart1 + dirtyRoomTextPart2
+
     private val pantryRoomText =
         "這裡是配膳室，為了愛護地球，請您依垃圾分類標示完成垃圾分類，廚餘請倒入廚餘桶；這裡也有製冰機，僅供冰敷或冰枕使用，不可以食用；而飲水機半夜會有消毒時間，取用時請注意時間。"
     private val linenText =
@@ -109,6 +127,12 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
             descriptionId: Int,
             description: String
         ) {
+            if (status.equals("complete", ignoreCase = true) ||
+                status.equals("abort", ignoreCase = true)
+            ) {
+                MovementAudioManager.onMovementStopped()
+            }
+
             if (!isTouring && !layoutOverlay.isShown) return
 
             if (status.equals("complete", ignoreCase = true)) {
@@ -124,7 +148,6 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         val initialTarget = intent.getStringExtra(EXTRA_TARGET_LOCATION)?.trim().orEmpty()
         val isFullTour = intent.getBooleanExtra(EXTRA_START_FULL_TOUR, false)
 
-        // 🌟 修正：替換回原本正確的狀態管理寫法 (因為沒有 setBusy / setIdle 函式)
         if (initialTarget.isNotEmpty() || isFullTour) {
             AppStatus.isBusy = true
             AppStatus.currentTaskName = if (isFullTour) "全區導覽" else "準備前往 $initialTarget"
@@ -137,6 +160,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         videoMode = intent.getStringExtra(EXTRA_VIDEO_MODE) ?: VideoActivity.MODE_HEALTH_EDU
         videoKey = intent.getStringExtra(EXTRA_VIDEO_KEY).orEmpty()
         arrivalConsumed = false
+        sourceQuery = intent.getStringExtra(EXTRA_SOURCE_QUERY).orEmpty()
 
         robot = Robot.getInstance()
         speechManager = SpeechManager(this, robot)
@@ -157,6 +181,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         videoMode = intent.getStringExtra(EXTRA_VIDEO_MODE) ?: VideoActivity.MODE_HEALTH_EDU
         videoKey = intent.getStringExtra(EXTRA_VIDEO_KEY).orEmpty()
         arrivalConsumed = false
+        sourceQuery = intent.getStringExtra(EXTRA_SOURCE_QUERY).orEmpty()
 
         handleAutoNavigationFromIntent(intent)
     }
@@ -213,7 +238,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         if (raw.isBlank()) return
 
         val target = normalizeTargetName(raw)
-        val sourceQuery = i.getStringExtra(EXTRA_SOURCE_QUERY).orEmpty()
+        sourceQuery = i.getStringExtra(EXTRA_SOURCE_QUERY).orEmpty()
         Log.d(TAG, "auto target=$target, query=$sourceQuery")
 
         activeTarget = target
@@ -247,6 +272,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     private fun forceStopEverything() {
         robot.stopMovement()
         speechManager.stop()
+        MovementAudioManager.stopAndReset()
         handler.removeCallbacksAndMessages(null)
 
         isTouring = false
@@ -298,6 +324,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         showOverlayUI("開始全區導覽，前往護理站...", R.drawable.nursing_station_img)
         speechManager.speak("開始全區導覽，現在前往護理站")
         robot.goTo("護理站")
+        MovementAudioManager.onMovementStarted(this)
     }
 
     private fun startGoToLocation(locationName: String, tourMode: Boolean) {
@@ -306,7 +333,6 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
 
         val normalizedLocation = normalizeTargetName(locationName)
 
-        // 🔥 [終極攔截防呆] (保留學長邏輯)
         if (normalizedLocation == "全區導覽" && !tourMode) {
             startFullTour()
             return
@@ -335,13 +361,13 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
 
         speechManager.speak("現在前往$displayName")
         robot.goTo(goToName)
+        MovementAudioManager.onMovementStarted(this)
         Toast.makeText(this, "前往 $displayName", Toast.LENGTH_SHORT).show()
     }
 
     private fun showWardQuestionDialog(roomKey: String) {
         if (isFinishing || isDestroyed) return
 
-        // 🌟 補上：彈出詢問對話框時，狀態應設為忙碌
         AppStatus.isBusy = true
         AppStatus.currentTaskName = "正在詢問病患需求"
 
@@ -384,7 +410,42 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         speechManager.speak("請問是否還有其他問題？")
     }
 
+    private fun playDirtyRoomIntro(onComplete: () -> Unit) {
+        runOnUiThread {
+            txtSubtitle.text = dirtyRoomTextPart1
+            imgOverlay.setImageResource(R.drawable.dirty_room_img_1)
+            layoutOverlay.visibility = View.VISIBLE
+            AppStatus.isBusy = true
+            AppStatus.currentTaskName = "正在執行地點介紹"
+        }
+
+        speechManager.speak(dirtyRoomTextPart1) {
+            runOnUiThread {
+                txtSubtitle.text = dirtyRoomTextPart2
+                imgOverlay.setImageResource(R.drawable.dirty_room_img_2)
+            }
+
+            speechManager.speak(dirtyRoomTextPart2) {
+                runOnUiThread {
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        if (isTouring || layoutOverlay.visibility == View.VISIBLE) {
+                            onComplete()
+                        }
+                    }, 500)
+                }
+            }
+        }
+    }
+
     private fun handleArrivalLogic(location: String) {
+        if (isCallOnlyWardArrival(location)) {
+            runOnUiThread {
+                hideOverlayUI()
+                finish()
+            }
+            return
+        }
+
         if (isTouring && location == "護理站" && isReturningToStart) {
             isTouring = false
             isReturningToStart = false
@@ -414,11 +475,15 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
 
         val onActionComplete = { checkNextMove(location) }
 
+        if (location == "污物室" || location == "汙物室") {
+            playDirtyRoomIntro(onActionComplete)
+            return
+        }
+
         val locationData = when (location) {
             "護理站" -> Pair(nursingStationText, R.drawable.nursing_station_img)
             "體重計" -> Pair(scaleText, R.drawable.scale_img)
             "被服車" -> Pair(linenText, R.drawable.linen_img)
-            "污物室", "汙物室" -> Pair(dirtyRoomText, R.drawable.dirty_room_img)
             "配膳室" -> Pair(pantryRoomText, R.drawable.pantry_img)
             "輪椅區" -> Pair(wheelchairText, R.drawable.wheelchair_img)
             else -> null
@@ -427,7 +492,6 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         if (locationData != null) {
             val (speakText, imageResId) = locationData
             showOverlayUI(speakText, imageResId)
-            // 🌟 補上：地點介紹時，狀態應設為忙碌
             AppStatus.isBusy = true
             AppStatus.currentTaskName = "正在執行地點介紹"
             speakWithCallback(speakText, onActionComplete)
@@ -448,7 +512,6 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     }
 
     private fun speakWithCallback(text: String, onComplete: () -> Unit) {
-        // (保留學長的高級語音管理邏輯)
         speechManager.speak(text) {
             runOnUiThread {
                 Handler(Looper.getMainLooper()).postDelayed({
@@ -474,6 +537,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
                 handler.postDelayed({
                     speechManager.speak("現在前往$nextLocation")
                     robot.goTo(nextLocation)
+                    MovementAudioManager.onMovementStarted(this)
                 }, 2000)
             } else {
                 isTouring = false
@@ -504,7 +568,6 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
             txtSubtitle.text = subtitle
             imgOverlay.setImageResource(imageResId)
             layoutOverlay.visibility = View.VISIBLE
-            // 只要 Overlay 在畫面上，就維持忙碌狀態
             AppStatus.isBusy = true
         }
     }
@@ -512,7 +575,6 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     private fun hideOverlayUI() {
         runOnUiThread {
             layoutOverlay.visibility = View.GONE
-            // 畫面收起，解鎖狀態
             AppStatus.isBusy = false
             AppStatus.currentTaskName = "空閒"
         }
@@ -521,7 +583,6 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     private fun showCustomDialog() {
         if (isFinishing || isDestroyed) return
 
-        // 🌟 補上：自訂問題對話框，狀態應設為忙碌
         AppStatus.isBusy = true
         AppStatus.currentTaskName = "正在詢問病患需求"
 
@@ -539,7 +600,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
             speechManager.speak("請問有什麼需要幫忙的呢？")
             dialog.dismiss()
             currentDialog = null
-            hideOverlayUI() // 呼叫隱藏 UI 會自動解鎖狀態
+            hideOverlayUI()
         }
 
         btnNo.setOnClickListener {
