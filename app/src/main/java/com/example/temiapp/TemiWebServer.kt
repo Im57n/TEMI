@@ -42,7 +42,7 @@ class TemiWebServer(private val context: Context, port: Int) : NanoHTTPD(port) {
                 put("currentTask", AppStatus.currentTaskName)
 
                 // 🌟 Temi-remote版本號 更新後要+1！
-                put("apkVersion", 3)
+                put("apkVersion", 4)
             }.toString()
             return createCorsResponse(Response.Status.OK, statusJson)
         }
