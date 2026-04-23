@@ -41,7 +41,7 @@ class TemiWebServer(private val context: Context, port: Int) : NanoHTTPD(port) {
                 put("isBusy", AppStatus.isBusy)
                 put("currentTask", AppStatus.currentTaskName)
 
-                // 🌟 Temi-remote版本號 更新後要+1！
+                // 🌟 核心：宣告目前 Temi 肚子裡的 APK 是第 2 版！
                 put("apkVersion", 4)
             }.toString()
             return createCorsResponse(Response.Status.OK, statusJson)
@@ -85,6 +85,9 @@ class TemiWebServer(private val context: Context, port: Int) : NanoHTTPD(port) {
                 // 一收到正常指令，立刻全域鎖定
                 AppStatus.isBusy = true
 
+                // 🌟 加入 SINGLE_TOP 標籤，防止畫面重複摧毀重建導致的生命週期重疊 Bug
+                val flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+
                 when (action) {
                     "navigation" -> {
                         val target = json.optString("target")
@@ -93,7 +96,7 @@ class TemiWebServer(private val context: Context, port: Int) : NanoHTTPD(port) {
                         val intent = Intent(context, NavigationActivity::class.java).apply {
                             putExtra(NavigationActivity.EXTRA_TARGET_LOCATION, target)
                             putExtra(NavigationActivity.EXTRA_SOURCE_QUERY, "remote")
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            addFlags(flags)
                         }
                         context.startActivity(intent)
                     }
@@ -102,7 +105,7 @@ class TemiWebServer(private val context: Context, port: Int) : NanoHTTPD(port) {
                         AppStatus.currentTaskName = "全區導覽"
                         val intent = Intent(context, NavigationActivity::class.java).apply {
                             putExtra("extra_is_full_tour", true)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            addFlags(flags)
                         }
                         context.startActivity(intent)
                     }
@@ -113,7 +116,7 @@ class TemiWebServer(private val context: Context, port: Int) : NanoHTTPD(port) {
 
                         val intent = Intent(context, BroadcastActivity::class.java).apply {
                             putExtra("extra_auto_start_text", topic)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            addFlags(flags)
                         }
                         context.startActivity(intent)
                     }
@@ -124,7 +127,7 @@ class TemiWebServer(private val context: Context, port: Int) : NanoHTTPD(port) {
 
                         val intent = Intent(context, VideoActivity::class.java).apply {
                             putExtra(VideoActivity.EXTRA_AUTOPLAY_KEY, key)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            addFlags(flags)
                         }
                         context.startActivity(intent)
                     }
@@ -147,7 +150,7 @@ class TemiWebServer(private val context: Context, port: Int) : NanoHTTPD(port) {
                                 putExtra("extra_auto_start_text", content)
                             }
                         }
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        intent.addFlags(flags)
                         context.startActivity(intent)
                     }
                 }

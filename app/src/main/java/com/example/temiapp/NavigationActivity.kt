@@ -89,6 +89,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     private fun wardKey(name: String): String =
         name.replace(Regex("[\\s\\u3000]+"), "").lowercase()
 
+    // 🌟 嚴格保留您原有的單純呼叫邏輯
     private fun isCallOnlyWardArrival(location: String): Boolean {
         if (sourceQuery != "call_only") return false
         if (isTouring) return false
@@ -173,9 +174,13 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         handleAutoNavigationFromIntent(intent)
     }
 
+    // 🌟 完美整合：攔截重複利用的畫面指令，避免摧毀重建導致殘留卡死
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+
+        // 🌟 關鍵：確保收到新指令時，徹底清除上一個殘留的畫面與語音
+        forceStopEverything()
 
         startVideoOnArrival = intent.getBooleanExtra(EXTRA_START_VIDEO_ON_ARRIVAL, false)
         videoMode = intent.getStringExtra(EXTRA_VIDEO_MODE) ?: VideoActivity.MODE_HEALTH_EDU
@@ -380,6 +385,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
         val btnYes = dialog.findViewById<Button>(R.id.btn_yes)
         val btnNo = dialog.findViewById<Button>(R.id.btn_no)
 
+        // 🌟 嚴格保留您原來的選單跳轉邏輯
         btnYes.setOnClickListener {
             speechManager.speak("請問有什麼需要幫忙的呢？")
             dialog.dismiss()
@@ -438,6 +444,7 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
     }
 
     private fun handleArrivalLogic(location: String) {
+        // 🌟 嚴格保留您原來的單純呼叫抵達判斷
         if (isCallOnlyWardArrival(location)) {
             runOnUiThread {
                 hideOverlayUI()
@@ -499,11 +506,14 @@ class NavigationActivity : AppCompatActivity(), OnRobotReadyListener {
             if (location == "home base" || location == "充電座") {
                 speechManager.speak("很高興為您服務，我現在要充電了。")
             } else {
+
+                // ======== 這裡已經修改 ========
                 if (!isTouring && isWardLocation(location)) {
                     hideOverlayUI()
-                    showWardQuestionDialog(wardKey(location))
+                    finish() // <--- 取代原本的 showWardQuestionDialog(wardKey(location))，直接安靜結束
                     return
                 }
+                // ==============================
 
                 speechManager.speak("$location 到了。")
             }

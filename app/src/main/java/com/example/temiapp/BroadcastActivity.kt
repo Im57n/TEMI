@@ -1,5 +1,6 @@
 package com.example.temiapp
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -62,17 +63,39 @@ class BroadcastActivity : AppCompatActivity(),
 
         autoStartText = intent.getStringExtra(EXTRA_AUTO_START_TEXT)
         if (!autoStartText.isNullOrEmpty()) {
-            // 🌟 修正：遠端啟動先鎖定為忙碌，改用正確的 AppStatus 屬性
             AppStatus.isBusy = true
             AppStatus.currentTaskName = "準備執行廣播任務..."
         } else {
-            // 🌟 確保手動開啟時為空閒
             AppStatus.isBusy = false
             AppStatus.currentTaskName = "空閒"
         }
 
         setupListView()
         setupButtons()
+    }
+
+    // 🌟 攔截重複利用的畫面指令，避免摧毀重建
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+
+        targetRoom = intent.getStringExtra(EXTRA_TARGET_ROOM).orEmpty().trim()
+        isRoomRouteBroadcast = targetRoom.isNotEmpty()
+        autoStartText = intent.getStringExtra(EXTRA_AUTO_START_TEXT)
+
+        if (!autoStartText.isNullOrEmpty()) {
+            AppStatus.isBusy = true
+            AppStatus.currentTaskName = "準備執行廣播任務..."
+
+            // 🌟 清除前一個廣播任務的殘留狀態
+            stopBroadcast()
+
+            if (robot.isReady) {
+                selectedText = autoStartText
+                autoStartText = null
+                startBroadcast()
+            }
+        }
     }
 
     override fun onStart() {
@@ -141,7 +164,6 @@ class BroadcastActivity : AppCompatActivity(),
         }
         if (!robot.isReady) return
 
-        // 🌟 修正：啟動任務，設為忙碌 (替換 setBusy)
         AppStatus.isBusy = true
         AppStatus.currentTaskName = if (isRoomRouteBroadcast) "病房政策宣導" else "巡邏廣播"
 
@@ -234,7 +256,6 @@ class BroadcastActivity : AppCompatActivity(),
         robot.stopMovement()
         MovementAudioManager.stopAndReset()
 
-        // 🌟 修正：停止時解鎖狀態 (替換 setIdle)
         AppStatus.isBusy = false
         AppStatus.currentTaskName = "空閒"
     }
@@ -242,7 +263,6 @@ class BroadcastActivity : AppCompatActivity(),
     override fun onDestroy() {
         stopBroadcast()
         speechManager.shutdown()
-        // 🌟 修正：確保銷毀時解鎖狀態
         AppStatus.isBusy = false
         AppStatus.currentTaskName = "空閒"
         super.onDestroy()
